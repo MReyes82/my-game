@@ -1,0 +1,36 @@
+[Atlas_info]
+/atlas/atlas1.png
+2560 1664
+64 64
+30 30
+[ID_matrix]
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n 978 n 979 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n 978 n 979 n -1 n -1 n
+-1 n -1 n 1018 n 1019 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n 1018 n 1019 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n 720 n 721 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n 760 n 761 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n 720 n 721 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n 760 n 761 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n 978 n 979 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n 978 n 979 n -1 n -1 n
+-1 n -1 n 1018 n 1019 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n 1018 n 1019 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n
+-1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n -1 n

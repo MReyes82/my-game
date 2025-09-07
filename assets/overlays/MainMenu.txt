@@ -1,0 +1,7 @@
+[Atlas_info]
+/sprites/MainMenu.png
+x y
+w h
+w.len h.len
+[ID_matrix]
+0 0

@@ -1,0 +1,296 @@
+#include "EscenaMain.hpp"
+
+#include <Juego/Maquinas/GameStates/EnemyStates.hpp>
+#include <Juego/Maquinas/GameStates/PlayerStates.hpp>
+
+#include "Juego/Maquinas/JugadorFSM/IdleFSM.hpp"
+#include "Juego/objetos/Entidad.hpp"
+#include "Juego/Sistemas/Sistemas.hpp"
+#include "Motor/Camaras/CamarasGestor.hpp"
+#include "Motor/Primitivos/GestorAssets.hpp"
+#include "Motor/Render/Render.hpp"
+
+#define SECONDS_ 60
+#define MINUTES_ 3600
+#define PLAYER_BOUNDINGBOX_FACTOR 0.75f
+#define MAX_PLAYER_HP 10
+
+namespace IVJ
+{
+    void EscenaMain::initPlayerPointer()
+    {
+        CE::GestorAssets::Get().agregarTextura("hojaPlayer", ASSETS "/sprites/player/player_sprite.png",
+            CE::Vector2D{0, 0}, CE::Vector2D{128, 640});
+        player = std::make_shared<Entidad>(); // note: now the constructor auto-asigns a transform and stats component
+        player->setPosicion(540.f, 360.f);
+        player->getStats()->hp = MAX_PLAYER_HP;
+        player->getStats()->hp_max = MAX_PLAYER_HP;
+        player->getStats()->score = 0;
+        player->getStats()->damage = 1; // knife damage
+        player->getStats()->maxSpeed = 165.f;
+
+        //! NOTE: YOU HAVE TO ADD THE COMPONENTS IN THIS ORDER, OR ELSE THE COLLISION WON'T WORK PROPERLY
+        player->addComponente(std::make_shared<CE::ISprite>(
+                    CE::GestorAssets::Get().getTextura("hojaPlayer"),
+                    32, 32, 1.f))
+                .addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f * PLAYER_BOUNDINGBOX_FACTOR, 32.f * PLAYER_BOUNDINGBOX_FACTOR}))
+                .addComponente(std::make_shared<IVJ::IMaquinaEstado>())
+                .addComponente(std::make_shared<CE::IControl>());
+
+        auto &fsm_init = player->getComponente<IMaquinaEstado>()->fsm;
+        player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
+        fsm_init  = std::make_shared<IdleState>(player->getIsEntityFacingRight());
+        fsm_init->onEntrar(*player);
+
+        player->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+
+        objetos.agregarPool(player);
+    }
+
+    void EscenaMain::registerButtons()
+    {
+        registrarBotones(sf::Keyboard::Scancode::W, "arriba");
+        registrarBotones(sf::Keyboard::Scancode::Up, "arriba");
+        registrarBotones(sf::Keyboard::Scancode::S, "abajo");
+        registrarBotones(sf::Keyboard::Scancode::Down, "abajo");
+        registrarBotones(sf::Keyboard::Scancode::A, "izquierda");
+        registrarBotones(sf::Keyboard::Scancode::Left, "izquierda");
+        registrarBotones(sf::Keyboard::Scancode::D, "derecha");
+        registrarBotones(sf::Keyboard::Scancode::Right, "derecha");
+        registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
+        registrarBotones(sf::Keyboard::Scancode::LShift, "correr");
+        registrarBotonesMouse(sf::Mouse::Button::Left, "atacar");
+        registrarBotonesMouse(sf::Mouse::Button::Right, "interactuar");
+    }
+
+    void EscenaMain::summonEnemies(int maxEnemies)
+    {
+        for (int i = 0 ; i < maxEnemies ; i++)
+        {
+            auto enemy = std::make_shared<Entidad>();
+            //enemy->setType(Entidad::ENTITY_TYPE::ENEMY);
+            const int randNum = rand() % 3;
+            std::string enemyType = SystemChooseEnemyType(randNum);
+            //CE::printDebug("Enemy type chosen: " + enemyType);
+            constexpr float enemyWidth = 32.f;
+            constexpr float enemyHeight = 32.f;
+            constexpr float enemyScale = 1.f;
+            const int randomSpawnIndex = rand() % spawnPositions.size();
+            enemy->setPosicion(spawnPositions[randomSpawnIndex].x, spawnPositions[randomSpawnIndex].y);
+            AdjustEntityStats(enemy, randNum);
+
+            enemy->addComponente(std::make_shared<CE::ISprite>(
+               CE::GestorAssets::Get().getTextura(enemyType), enemyWidth, enemyHeight, enemyScale))
+            .addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{(enemyWidth - 8.f) * enemyScale, (enemyHeight - 8.f) * enemyScale}))
+            .addComponente(std::make_shared<IVJ::IMaquinaEstado>())
+            .addComponente(std::make_shared<CE::IControl>())
+            ;
+
+            auto& fsm_init = enemy->getComponente<IMaquinaEstado>()->fsm;
+            fsm_init = std::make_shared<IdleEnemyState>(true);
+            fsm_init->onEntrar(*enemy);
+
+            enemy->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+
+            objetos.agregarPool(enemy);
+        }
+    }
+
+    void EscenaMain::checkRoundEnd()
+    {
+        if (currentEnemiesInScene == 0)
+        {
+            currentRound++;
+            MAX_ROUND_ENEMIES++;
+            currentEnemiesInScene = MAX_ROUND_ENEMIES;
+            summonEnemies(currentEnemiesInScene);
+            CE::printDebug("New round: " + std::to_string(currentRound));
+            shouldShowNewRoundText = true; // todo: implement a UIInfo class to show
+        }
+    }
+
+    void EscenaMain::onInit()
+    {
+        if (!inicializar)
+            return;
+
+        // load background tilemap
+        // need to call to the second method that has the pool reference in order to load the collision boxes
+        if (!background[0].loadTileMap(ASSETS "/mapas/background_city.txt", objetos))
+            exit(EXIT_FAILURE);
+
+        // register all usable buttons
+        registerButtons();
+        CE::GestorAssets::Get().agregarTextura("hojaErrante", ASSETS "/sprites/enemies/errante_sprite.png",
+            CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+        CE::GestorAssets::Get().agregarTextura("hojaBerserker", ASSETS "/sprites/enemies/berserker_sprite.png",
+            CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+        CE::GestorAssets::Get().agregarTextura("hojaChongus", ASSETS "/sprites/enemies/chongus_sprite.png",
+            CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+        initPlayerPointer();
+
+        CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
+            CE::Vector2D{540.f, 360.f}, CE::Vector2D{1080.f, 720.f}));
+        CE::GestorCamaras::Get().setCamaraActiva(1);
+        CE::GestorCamaras::Get().getCamaraActiva().lockEnObjeto(player);
+
+        inicializar = false;
+    }
+
+    void EscenaMain::onFinal()
+    {}
+
+    void EscenaMain::onUpdate(float dt)
+    {
+        SistemaControl(*player, dt);
+        SistemaMover(objetos.getPool(), dt);
+        //SystemFollowPlayer(objetos.getPool(), *player, dt);
+        SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
+
+        // check if round has ended, if so, summon new enemies
+        checkRoundEnd();
+
+        player->inputFSM();
+
+        //SystemFollowPlayer()
+        for (auto& currentObject : objetos.getPool())
+        {
+            currentObject->onUpdate(dt);
+
+            /*if (currentObject != player)
+            {
+                Entidad* enemyCast = &dynamic_cast<Entidad&>(*currentObject);
+                if (enemyCast->tieneComponente<CE::IEntityType>())
+                {
+                    if (enemyCast->getComponente<CE::IEntityType>()->type == CE::ENTITY_TYPE::ENEMY) enemyCast->inputFSM();
+                }
+            }*/
+
+            if (currentObject != player)
+            {
+                if (SistemaColAABBMid(*player, *currentObject, true))
+                {
+                    //CE::printDebug("Player collided with another entity");
+                    auto& objectCast = dynamic_cast<Entidad&>(*currentObject);
+                    objectCast.setCollidedWithAnotherEntity(true);
+                    std::cout << "Player pos: " << player->getTransformada()->posicion.x << ", " << player->getTransformada()->posicion.y << "\n";
+                    std::cout << "Object pos: " << currentObject->getTransformada()->posicion.x << ", " << currentObject->getTransformada()->posicion.y << "\n";
+                }
+                else
+                {
+                    //CE::printDebug("Player NOT collided with another entity");
+                    auto& objectCast = dynamic_cast<Entidad&>(*currentObject);
+                    objectCast.setCollidedWithAnotherEntity(false);
+                }
+            }
+
+
+        }
+
+        objetos.borrarPool();
+    }
+
+    void EscenaMain::onInputs(const CE::Botones &accion)
+    {
+        auto playerControl = player->getComponente<CE::IControl>();
+
+        if (accion.getTipo() == CE::Botones::TipoAccion::OnPress)
+        {
+            if (accion.getNombre() == "correr")
+            {
+                playerControl->run = true;
+            }
+
+            if (accion.getNombre() == "arriba")
+            {
+                playerControl->arr = true;
+            }
+
+            else if (accion.getNombre() == "abajo")
+            {
+                playerControl->abj = true;
+            }
+
+            else if (accion.getNombre() == "derecha")
+            {
+                playerControl->der = true;
+            }
+
+            else if (accion.getNombre() == "izquierda")
+            {
+                playerControl->izq = true;
+            }
+        }
+
+        else if (accion.getTipo() == CE::Botones::TipoAccion::OnRelease)
+        {
+            if (accion.getNombre() == "correr")
+            {
+                playerControl->run = false;
+            }
+
+            if (accion.getNombre() == "arriba")
+            {
+                playerControl->arr = false;
+            }
+
+            else if (accion.getNombre() == "abajo")
+            {
+                playerControl->abj = false;
+            }
+
+            else if (accion.getNombre() == "derecha")
+            {
+                playerControl->der = false;
+            }
+
+            else if (accion.getNombre() == "izquierda")
+            {
+                playerControl->izq = false;
+            }
+        }
+    }
+
+    void EscenaMain::onInputs(const CE::MouseButton &accion)
+    {
+        auto playerControl = player->getComponente<CE::IControl>();
+
+        if (accion.getTipo() == CE::MouseButton::TipoAccion::OnPress)
+        {
+            if (accion.getNombre() == "atacar")
+            {
+                playerControl->atacar = true;
+                //CE::printDebug("Player attacking");
+            }
+            else if (accion.getNombre() == "interactuar")
+            {
+                playerControl->interactuar = true;
+                //CE::printDebug("Player interacting");
+            }
+        }
+        else if (accion.getTipo() == CE::MouseButton::TipoAccion::OnRelease)
+        {
+            if (accion.getNombre() == "atacar")
+            {
+                playerControl->atacar = false;
+                //CE::printDebug("player stop attacking");
+            }
+            else if (accion.getNombre() == "interactuar")
+            {
+                playerControl->interactuar = false;
+                //CE::printDebug("player stop interacting");
+            }
+        }
+    }
+
+    void EscenaMain::onRender()
+    {
+        for (auto& b : background)
+            CE::Render::Get().AddToDraw(b);
+
+        for (auto& obj : objetos.getPool())
+        {
+            CE::Render::Get().AddToDraw(*obj);
+        }
+    }
+} // IVJ
