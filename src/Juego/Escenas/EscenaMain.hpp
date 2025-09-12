@@ -23,6 +23,7 @@ namespace IVJ
     private: // scene methods
         void checkRoundEnd();
         void summonEnemies(int maxEnemies);
+        void movePlayerPointer();
 
         void initPlayerPointer();
         void registerButtons();

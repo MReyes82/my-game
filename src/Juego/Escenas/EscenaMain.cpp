@@ -1,5 +1,6 @@
 #include "EscenaMain.hpp"
 
+#include <algorithm>
 #include <Juego/Maquinas/GameStates/EnemyStates.hpp>
 #include <Juego/Maquinas/GameStates/PlayerStates.hpp>
 
@@ -106,6 +107,29 @@ namespace IVJ
             summonEnemies(currentEnemiesInScene);
             CE::printDebug("New round: " + std::to_string(currentRound));
             shouldShowNewRoundText = true; // todo: implement a UIInfo class to show
+            // update player reference to the end of the pool
+            movePlayerPointer();
+        }
+    }
+
+    // function to move the reference of the player object to the last position of the
+    // Pool, this is the only way to fix the collision resolving issue
+    void EscenaMain::movePlayerPointer()
+    {
+        if (objetos.getPool().empty())
+            return;
+
+        auto& pool = objetos.getPool();
+        // search for the player object in the pool
+        auto it = std::find_if(pool.begin(), pool.end(), // if found, it will be an iterator to the player object
+            [&](const std::shared_ptr<CE::Objeto>& obj) { // lambda to compare shared_ptr contents
+                return obj == player; // if the object is the player, return true
+            });
+
+        // if found, make and in place rotatin to move it to the end of the pool
+        if (it != pool.end())
+        {
+            std::rotate(it, it + 1, pool.end());
         }
     }
 
@@ -122,11 +146,11 @@ namespace IVJ
         // register all usable buttons
         registerButtons();
         CE::GestorAssets::Get().agregarTextura("hojaErrante", ASSETS "/sprites/enemies/errante_sprite.png",
-            CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+                                               CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
         CE::GestorAssets::Get().agregarTextura("hojaBerserker", ASSETS "/sprites/enemies/berserker_sprite.png",
-            CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+                                               CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
         CE::GestorAssets::Get().agregarTextura("hojaChongus", ASSETS "/sprites/enemies/chongus_sprite.png",
-            CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+                                               CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
         initPlayerPointer();
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
@@ -151,12 +175,12 @@ namespace IVJ
         checkRoundEnd();
 
         player->inputFSM();
+        player->checkPlayerFacingRight(CE::Render::Get().GetVentana());
 
         //SystemFollowPlayer()
         for (auto& currentObject : objetos.getPool())
         {
             currentObject->onUpdate(dt);
-
             /*if (currentObject != player)
             {
                 Entidad* enemyCast = &dynamic_cast<Entidad&>(*currentObject);
@@ -183,8 +207,6 @@ namespace IVJ
                     objectCast.setCollidedWithAnotherEntity(false);
                 }
             }
-
-
         }
 
         objetos.borrarPool();
