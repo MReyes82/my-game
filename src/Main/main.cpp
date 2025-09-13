@@ -10,8 +10,8 @@ int main(int argc, char* argv[])
     std::srand(std::time({}));
     //Crear objeto del motor
     CE::MotorConfig config;
-    config.vW=1080;
-    config.vH=720;
+    config.vW=1900;
+    config.vH=1020;
     config.titulo="CimaEngine";
     std::cout<<"Iniciando "<<config.titulo<<"\n";
 

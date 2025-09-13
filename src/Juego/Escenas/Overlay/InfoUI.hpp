@@ -1,5 +1,4 @@
 #pragma once
-#include <SFML/Graphics/Glsl.inl>
 
 namespace IVJ
 {
@@ -13,7 +12,7 @@ namespace IVJ
     {
     public:
         InfoUI()
-            : score{0}, healthAmount{10}, maxAmmo{-1}, currentAmmo{-1}, totalHealth{10}
+            : score{0}, healthAmount{10}, totalHealth{10}, maxAmmo{-1}, currentAmmo{-1}
         {}
 
         // setters and getters

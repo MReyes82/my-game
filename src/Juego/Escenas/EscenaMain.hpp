@@ -3,10 +3,13 @@
 
 #include "Juego/objetos/TileMap.hpp"
 #include "Motor/Primitivos/Escena.hpp"
+#include "Overlay/InfoUI.hpp"
 
 
 namespace IVJ
 {
+    class OverlayMain;
+
     class EscenaMain : public CE::Escena
     {
     public:
@@ -24,6 +27,8 @@ namespace IVJ
         void checkRoundEnd();
         void summonEnemies(int maxEnemies);
         void movePlayerPointer();
+        void loadUIAssets();
+        void updatePlayerUI();
 
         void initPlayerPointer();
         void registerButtons();
@@ -39,9 +44,8 @@ namespace IVJ
 
         // map and camera
         TileMap background[2];
-        // space for the overlay class, soon to be implemented
-        // space for the UIInfo class, soon to be implemented
-
+        std::shared_ptr<OverlayMain> sceneOverlay;
+        InfoUI UIsceneOverlayElements;
         /*
          * POSITION TABLES FOR ENEMIES AND LOOT SPAWNING
          */

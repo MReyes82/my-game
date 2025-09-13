@@ -17,9 +17,9 @@ namespace  IVJ
         // TODO: re-analyze if a reference to an object lock would be necessary for some overlays
         //explicit Overlay(const InfoUI& displayElements, const std::shared_ptr<Entidad>& objectLocked);
         explicit Overlay(const InfoUI& displayElements);
-        virtual ~Overlay();
+        virtual ~Overlay() = default;
         virtual void updateElements(InfoUI elements) = 0;
-        virtual void draw(sf::RenderWindow& renderWindow) = 0;
+        virtual void draw(CE::Render& renderWindow) = 0;
         void setPosition(const CE::Vector2D& pos) const;
 
     protected:
@@ -33,27 +33,32 @@ namespace  IVJ
     {
     public:
         explicit OverlayMain(const InfoUI& displayElements, const std::shared_ptr<Entidad>& objectLocked);
-        ~OverlayMain() override;
+        ~OverlayMain() override = default;
 
         void updateElements(InfoUI elements) override;
-        void draw(sf::RenderWindow& renderWindow) override;
-        void Update(const sf::RenderWindow& window, const InfoUI& elements);
+        void draw(CE::Render& renderWindow) override;
+        void Update(CE::Render& window, const InfoUI& elements);
+        [[nodiscard]] sf::Text getRoundText() { return roundText; }
+        [[nodiscard]] sf::Text getReloadingText() { return reloadingText; }
 
     private:
         // init methods for the position of the elements, will be called on the constructor
-        void setElementsPosition();
-        void setHeartPositions(float x, float y);
+        void setElementsPosition(float windowWidth, float windowHeight);
+        void setHeartPositions(float xStartPoint, float yStartPoint);
         // methods for refreshing dynamic elements
-        void drawCurrentHealth(sf::RenderWindow& sceneWindow);
-        void updateCrosshairPosition(const sf::RenderWindow& window);
+        void drawCurrentHealth(CE::Render& sceneWindow) const;
+        void updateCrosshairPosition(CE::Render& window);
         //void setWeaponSprite(WeaponType weapon);
         //void setUtilitySprite(UtilityType utility);
+
 
         std::shared_ptr<Entidad> objectLock;
         sf::Font font;
         sf::Text scoreText; // "score" label
         sf::Text scoreToText; // "actual" score amount
         sf::Text ammoText;
+        sf::Text reloadingText;
+        sf::Text roundText;
         CE::ISprite crosshair;
         CE::ISprite heartSprite;
         std::vector<sf::Sprite> hearts; // vector of heart sprites to represent
@@ -61,6 +66,6 @@ namespace  IVJ
         CE::ISprite ammoSprite;
         CE::ISprite utilitySprite;
         CE::ISprite weaponCageSprite;
-        CE::ISprite ammoCageSprite;
+        CE::ISprite utilityCageSprite;
     };
 }

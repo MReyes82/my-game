@@ -10,6 +10,7 @@
 #include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Render/Render.hpp"
+#include "Overlay/Overlay.hpp"
 
 #define SECONDS_ 60
 #define MINUTES_ 3600
@@ -133,11 +134,45 @@ namespace IVJ
         }
     }
 
+    /*
+     * Method that adds all the UI assets to the AssetManager
+     * to be used by the overlay class
+     */
+    void EscenaMain::loadUIAssets()
+    {
+        CE::GestorAssets::Get().agregarTextura("crosshair", ASSETS "/sprites/items/assets UI/UI/Cursor_crosshair02.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{15, 17});
+        CE::GestorAssets::Get().agregarTextura("heartSprite", ASSETS "/sprites/items/assets UI/UI/HUD_health01.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{8, 8});
+        CE::GestorAssets::Get().agregarTextura("weaponIconsSprite", ASSETS "/sprites/items/weapons/weapon_icons.png",
+                                                CE::Vector2D{0, 0}, CE::Vector2D{17.f, 44.f});
+        CE::GestorAssets::Get().agregarTextura("ammoIconSprite", ASSETS "/sprites/items/assets UI/UI/HUD_ammo01.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{8.f, 8.f});
+        CE::GestorAssets::Get().agregarTextura("utilityIconSprite", ASSETS "/sprites/items//utility_icons.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{14.f, 10.f});
+        CE::GestorAssets::Get().agregarTextura("weaponCageSprite", ASSETS "/sprites/items/assets UI/UI/empty_box.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
+        CE::GestorAssets::Get().agregarTextura("utilityCageSprite", ASSETS "/sprites/items/assets UI/UI/empty_box.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
+    }
+
+    // update the InfoUI object attributes based on current game state
+    void EscenaMain::updatePlayerUI()
+    {
+        UIsceneOverlayElements.setHealth(player->getStats()->hp);
+        UIsceneOverlayElements.setScore(player->getStats()->score);
+        UIsceneOverlayElements.setCurrentAmmo(10); //IWeapon->currentMagBullets
+        UIsceneOverlayElements.setMaxAmmo(30); // IWeapon->maxWeaponBullets
+        // setNewWeapon()
+        // changePlayerItems()
+    }
+
     void EscenaMain::onInit()
     {
         if (!inicializar)
             return;
 
+        loadUIAssets();
         // load background tilemap
         // need to call to the second method that has the pool reference in order to load the collision boxes
         if (!background[0].loadTileMap(ASSETS "/mapas/background_city.txt", objetos))
@@ -158,6 +193,9 @@ namespace IVJ
         CE::GestorCamaras::Get().setCamaraActiva(1);
         CE::GestorCamaras::Get().getCamaraActiva().lockEnObjeto(player);
 
+        UIsceneOverlayElements = InfoUI();
+        sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
+
         inicializar = false;
     }
 
@@ -173,6 +211,9 @@ namespace IVJ
 
         // check if round has ended, if so, summon new enemies
         checkRoundEnd();
+        // update overlay elements
+        updatePlayerUI();
+        sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
 
         player->inputFSM();
         player->checkPlayerFacingRight(CE::Render::Get().GetVentana());
@@ -307,12 +348,32 @@ namespace IVJ
 
     void EscenaMain::onRender()
     {
+        CE::Render::Get().GetVentana().setMouseCursorVisible(true);
         for (auto& b : background)
             CE::Render::Get().AddToDraw(b);
 
         for (auto& obj : objetos.getPool())
         {
             CE::Render::Get().AddToDraw(*obj);
+        }
+        // draw overlay at the end
+        sceneOverlay->draw(CE::Render::Get());
+
+        if (true) // newRoundTextTimer <= 2 * SECONDS_ && shouldShowNewRoundText
+        {
+            //CE::printDebug("DRAW ROUND TEXT");
+            CE::Render::Get().AddToDraw(sceneOverlay->getRoundText());
+
+        }
+        else
+        {
+            // shouldShowNewRoundText = false;
+            // newRoundTextTimer = 0;
+        }
+        if (true) // isReloaing
+        {
+            //CE::printDebug("DRAW RELOADING TEXT");
+            CE::Render::Get().AddToDraw(sceneOverlay->getReloadingText());
         }
     }
 } // IVJ
