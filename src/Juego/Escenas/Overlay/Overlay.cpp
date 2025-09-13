@@ -104,40 +104,20 @@ namespace  IVJ
     }
 
     // Update the overlay elements based on the InfoUI object passed, to follow the player as if it were a camera
+    // NOTE: offset numbers are hardcoded since the camera has a zoom level so it won't be affected by window size
     void OverlayMain::setElementsPosition(float windowWidth, float windowHeight)
     {
         const auto centerX = overlayCenter->posicion.x;
         const auto centerY = overlayCenter->posicion.y;
-
-        // Define margin from window edges
-        constexpr float margin = 20.f;
-
-        // Calculate positions relative to window size in world coordinates
-        // Convert window edges to world coordinates
-        // these allow to keep these classes logic decoupled from the rendering system
-        // so it can adapt to different resolutions
-        sf::RenderWindow& ventana = CE::Render::Get().GetVentana();
-        sf::Vector2f topRight = ventana.mapPixelToCoords(
-            sf::Vector2i(windowWidth - margin, margin));
-        sf::Vector2f bottomRight = ventana.mapPixelToCoords(
-            sf::Vector2i(windowWidth - margin, windowHeight - margin));
-        sf::Vector2f centerRight = ventana.mapPixelToCoords(
-            sf::Vector2i(windowWidth - margin, windowHeight / 2));
-
-        // Position score text at top-right in world coordinates
-        scoreText.setPosition({topRight.x - scoreText.getGlobalBounds().size.x,
-                             topRight.y});
-        scoreToText.setPosition({topRight.x - scoreToText.getGlobalBounds().size.x,
-                               topRight.y + 30.f});
+        // Position score text at top-right relative to center
+        scoreText.setPosition({centerX + 105, centerY - 130});
+        scoreToText.setPosition({centerX + 105, centerY - 100});
 
         // Center-relative positions
         reloadingText.setPosition({centerX - 40.f, centerY});
-        roundText.setPosition({centerX - 120.f, centerY - 100.f});
+        roundText.setPosition({centerX - 120.f, centerY - 60.f});
 
-        // Weapon cage at center Y and right edge X
-        weaponCageSprite.m_sprite.setPosition({centerRight.x - weaponCageSprite.m_sprite.getGlobalBounds().size.x,
-                                              centerY - weaponCageSprite.m_sprite.getGlobalBounds().size.y / 2});
-
+        weaponCageSprite.m_sprite.setPosition({centerX  + 147, centerY - 3});
         // Center the weapon sprite within the cage
         const auto boxBounds = weaponCageSprite.m_sprite.getGlobalBounds();
         const auto weaponBounds = weaponSprite.m_sprite.getGlobalBounds();
@@ -146,9 +126,10 @@ namespace  IVJ
         weaponSprite.m_sprite.setPosition({weaponCenterX, weaponCenterY});
 
         // Ammo sprite relative to center
-        ammoSprite.m_sprite.setPosition({centerX + 120, centerY + 230});
+        ammoSprite.m_sprite.setPosition({centerX + 120, centerY + 23});
 
-        setHeartPositions(windowWidth, windowHeight);
+        // Hearts positioned at bottom-left relative to center
+        setHeartPositions(centerX - 180.f, centerY - 120.f);
     }
 
     // set posiiton of the hearts based on current health, in a contiguous line
@@ -187,7 +168,7 @@ namespace  IVJ
         // space for the utility and weapon type check
         render.AddToDraw(scoreText);
         render.AddToDraw(scoreToText);
-        render.AddToDraw(ammoSprite.m_sprite);
+        //render.AddToDraw(ammoSprite.m_sprite);
 
         drawCurrentHealth(render);
     }
@@ -198,11 +179,15 @@ namespace  IVJ
         // get current mouse position relative to the window
         sf::RenderWindow& window = render.GetVentana();
         const sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-        // convert to world coordinates
-        const sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-        // update crosshair position
-        crosshair.m_sprite.setPosition({worldPos.x - (crosshair.m_sprite.getGlobalBounds().size.x / 2),
-            worldPos.y - (crosshair.m_sprite.getGlobalBounds().size.y / 2)});
+        // convert to world coordinates using the camera's view
+        const sf::Vector2f worldPos = window.mapPixelToCoords(mousePos, CE::GestorCamaras::Get().getCamaraActiva().getView());
+        // update crosshair position, no need to adjust for the sprite globalbounds anymore (on SFML 3.0)
+        crosshair.m_sprite.setPosition({worldPos.x
+            //- (crosshair.m_sprite.getGlobalBounds().size.x / 2)
+            ,
+            worldPos.y
+            //- (crosshair.m_sprite.getGlobalBounds().size.y / 2)
+        });
     }
 
     // update of this class InfoUI object and sprites on the overlay

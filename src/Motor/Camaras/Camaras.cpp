@@ -106,7 +106,7 @@ namespace CE
     {
         nombre = "Camara Smooth Follow #"+std::to_string(Camara::num_camaras);
         lerpFactor = 3.f;
-        zoomfactor = 0.35f;
+        zoomfactor = 0.4f;
         setCameraZoom(zoomfactor);
     }
 

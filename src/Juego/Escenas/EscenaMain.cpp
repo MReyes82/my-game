@@ -238,8 +238,8 @@ namespace IVJ
                     //CE::printDebug("Player collided with another entity");
                     auto& objectCast = dynamic_cast<Entidad&>(*currentObject);
                     objectCast.setCollidedWithAnotherEntity(true);
-                    std::cout << "Player pos: " << player->getTransformada()->posicion.x << ", " << player->getTransformada()->posicion.y << "\n";
-                    std::cout << "Object pos: " << currentObject->getTransformada()->posicion.x << ", " << currentObject->getTransformada()->posicion.y << "\n";
+                    //std::cout << "Player pos: " << player->getTransformada()->posicion.x << ", " << player->getTransformada()->posicion.y << "\n";
+                    //std::cout << "Object pos: " << currentObject->getTransformada()->posicion.x << ", " << currentObject->getTransformada()->posicion.y << "\n";
                 }
                 else
                 {
