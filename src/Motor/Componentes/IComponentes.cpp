@@ -51,8 +51,6 @@ namespace CE
         //pivote
         m_sprite.setOrigin({w/2.f,h/2.f});
     }
-
-
     //SHADERS//
     //
     IShader::IShader(const std::string& vert,const std::string& frag)

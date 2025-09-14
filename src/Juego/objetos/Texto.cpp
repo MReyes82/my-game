@@ -7,7 +7,7 @@ namespace IVJ
     {
         texto.m_texto.setCharacterSize(60);
         texto.m_texto.setFillColor(sf::Color::Red);
-        texto.m_texto.setStyle(sf::Text::Style::Bold);
+        texto.m_texto.setStyle(sf::Text::Style::Regular);
     }
     void Texto::onUpdate(float dt)
     {

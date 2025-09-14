@@ -30,10 +30,10 @@ namespace IVJ
     {
         std::cout<<"Inicializando Juego\n";
         
-        //CE::GestorEscenas::Get().registrarEscena("Menu",std::make_shared<EscenaMenu>());
-        CE::GestorEscenas::Get().registrarEscena("Cuadros",std::make_shared<EscenaCuadros>());
-        CE::GestorEscenas::Get().registrarEscena("Shaders",std::make_shared<EscenaShaders>());
-        CE::GestorEscenas::Get().registrarEscena("Zombie",std::make_shared<Escena_zombie>());
+        CE::GestorEscenas::Get().registrarEscena("Menu",std::make_shared<EscenaMenu>());
+        //CE::GestorEscenas::Get().registrarEscena("Cuadros",std::make_shared<EscenaCuadros>());
+        //CE::GestorEscenas::Get().registrarEscena("Shaders",std::make_shared<EscenaShaders>());
+        //CE::GestorEscenas::Get().registrarEscena("Zombie",std::make_shared<Escena_zombie>());
         CE::GestorEscenas::Get().registrarEscena("Main", std::make_shared<EscenaMain>());
         //CE::GestorEscenas::Get().cambiarEscena("Shaders"); //ejecutar onInit()
         CE::GestorEscenas::Get().cambiarEscena("Main"); //ejecutar onInit()

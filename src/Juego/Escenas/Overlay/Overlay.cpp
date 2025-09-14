@@ -182,12 +182,7 @@ namespace  IVJ
         // convert to world coordinates using the camera's view
         const sf::Vector2f worldPos = window.mapPixelToCoords(mousePos, CE::GestorCamaras::Get().getCamaraActiva().getView());
         // update crosshair position, no need to adjust for the sprite globalbounds anymore (on SFML 3.0)
-        crosshair.m_sprite.setPosition({worldPos.x
-            //- (crosshair.m_sprite.getGlobalBounds().size.x / 2)
-            ,
-            worldPos.y
-            //- (crosshair.m_sprite.getGlobalBounds().size.y / 2)
-        });
+        crosshair.m_sprite.setPosition({worldPos.x, worldPos.y});
     }
 
     // update of this class InfoUI object and sprites on the overlay

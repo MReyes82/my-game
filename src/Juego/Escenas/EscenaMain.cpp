@@ -9,6 +9,7 @@
 #include "Juego/Sistemas/Sistemas.hpp"
 #include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
+#include "Motor/Primitivos/GestorEscenas.hpp"
 #include "Motor/Render/Render.hpp"
 #include "Overlay/Overlay.hpp"
 
@@ -63,9 +64,10 @@ namespace IVJ
         registrarBotones(sf::Keyboard::Scancode::LShift, "correr");
         registrarBotonesMouse(sf::Mouse::Button::Left, "atacar");
         registrarBotonesMouse(sf::Mouse::Button::Right, "interactuar");
+        registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
     }
 
-    void EscenaMain::summonEnemies(int maxEnemies)
+    void EscenaMain::summonEnemies(const int maxEnemies)
     {
         for (int i = 0 ; i < maxEnemies ; i++)
         {
@@ -133,7 +135,6 @@ namespace IVJ
             std::rotate(it, it + 1, pool.end());
         }
     }
-
     /*
      * Method that adds all the UI assets to the AssetManager
      * to be used by the overlay class
@@ -154,6 +155,9 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
         CE::GestorAssets::Get().agregarTextura("utilityCageSprite", ASSETS "/sprites/items/assets UI/UI/empty_box.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
+        // add here the font to the asset manager, however, this is only used for the menu and other scenes.
+        // the overlay texts that uses this font load it directly (not from the asset manager)
+        CE::GestorAssets::Get().agregarFont("NotJamSlab14",ASSETS "/fonts/NotJamSlab14.ttf");
     }
 
     // update the InfoUI object attributes based on current game state
@@ -169,8 +173,11 @@ namespace IVJ
 
     void EscenaMain::onInit()
     {
-        if (!inicializar)
+        if (!newInstance)
+        {
+            CE::GestorCamaras::Get().setCamaraActiva(1);
             return;
+        }
 
         loadUIAssets();
         // load background tilemap
@@ -196,7 +203,8 @@ namespace IVJ
         UIsceneOverlayElements = InfoUI();
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
 
-        inicializar = false;
+        newInstance = false;
+        gameState = true;
     }
 
     void EscenaMain::onFinal()
@@ -283,6 +291,16 @@ namespace IVJ
             {
                 playerControl->izq = true;
             }
+            else if (accion.getNombre() == "pausa")
+            {
+                // detect if game is paused or not
+                CE::GestorEscenas::Get().cambiarEscena("Menu");
+                gameState = !gameState;
+                if (gameState)
+                {
+                    CE::printDebug("Game paused");
+                }
+            }
         }
 
         else if (accion.getTipo() == CE::Botones::TipoAccion::OnRelease)
@@ -310,6 +328,10 @@ namespace IVJ
             else if (accion.getNombre() == "izquierda")
             {
                 playerControl->izq = false;
+            }
+            else if (accion.getNombre() == "pausa")
+            {
+                // do nothing on release
             }
         }
     }

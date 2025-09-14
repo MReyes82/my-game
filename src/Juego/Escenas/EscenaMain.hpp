@@ -27,14 +27,15 @@ namespace IVJ
         void checkRoundEnd();
         void summonEnemies(int maxEnemies);
         void movePlayerPointer();
-        void loadUIAssets();
+        static void loadUIAssets();
         void updatePlayerUI();
 
         void initPlayerPointer();
         void registerButtons();
 
     private: // scene variables and pointers
-        bool inicializar {true}; // flag to initialize only once
+        bool newInstance {true}; // flag to initialize only once
+        bool gameState {false}; // false = playing, true = paused
         std::shared_ptr<Entidad> player; // player entity
         //std::vector<std::shared_ptr<Entidad>> enemies; // vector of enemy entities
         signed int currentRound {0};
