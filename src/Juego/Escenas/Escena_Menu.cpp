@@ -122,7 +122,7 @@ namespace IVJ
                     exit(EXIT_SUCCESS); // or set a flag to exit gracefully
                     break;
                 case 2: // Go to Bestiary
-                    //CE::GestorEscenas::Get().cambiarEscena("Bestiary");
+                    CE::GestorEscenas::Get().cambiarEscena("Bestiary");
                     break;
                 default:
                     break;

@@ -5,18 +5,12 @@
 #include <string>
 
 #include "../Motor/Primitivos/GestorEscenas.hpp"
-#include "../Motor/GUI/GLogger.hpp"
-
-#include "../Motor/Render/Render.hpp"
-
-#include <cstdlib>
-#include <ctime>
 #include "Escenas/Escena_Menu.hpp"
 #include "Escenas/EscenaCuadro.hpp"
 #include "Escenas/Escena_zombie.hpp"
 #include "Escenas/EscenaShaders.hpp"
-#include "imgui.h"
 #include "Escenas/EscenaMain.hpp"
+#include "Escenas/Escena_Bestiary.hpp"
 
 namespace IVJ
 {
@@ -35,15 +29,12 @@ namespace IVJ
         //CE::GestorEscenas::Get().registrarEscena("Shaders",std::make_shared<EscenaShaders>());
         //CE::GestorEscenas::Get().registrarEscena("Zombie",std::make_shared<Escena_zombie>());
         CE::GestorEscenas::Get().registrarEscena("Main", std::make_shared<EscenaMain>());
+        CE::GestorEscenas::Get().registrarEscena("Bestiary", std::make_shared<Escena_Bestiary>());
         //CE::GestorEscenas::Get().cambiarEscena("Shaders"); //ejecutar onInit()
         CE::GestorEscenas::Get().cambiarEscena("Main"); //ejecutar onInit()
         escena_actual = &CE::GestorEscenas::Get().getEscenaActual();
         
     }
-    /**
-     *TODO: Hacer un buffer para los inputs y poder ejecutar
-     * inputs simultaneos
-     */
     void Juego::OnInputs(float dt)
     {
         auto br = escena_actual->getBotonesRegistrados();
