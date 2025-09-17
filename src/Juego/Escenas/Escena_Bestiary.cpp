@@ -14,7 +14,7 @@ namespace IVJ
     // Helper: enemy names and descriptions
     std::array<std::string, 10> ENEMY_NAMES = {
         "Errant", "Crawler", "Berserker", "Shielded", "Summoner",
-        "Burglar", "Kamikaze", "Jockey", "Spitter", "Chongus"
+        "Burglar", "Blaster", "Jockey", "Burster", "Chongus"
     };
     std::array<std::string, 10> ENEMY_DESCRIPTIONS = {
         "A wandering zombie.", "Crawls quickly.", "Strong and aggressive.", "Has a shield.",
@@ -30,7 +30,13 @@ namespace IVJ
         : CE::Escena{}
     {
             enemiesKilledStats = std::make_shared<std::array<int, 10>>();
-            enemiesKilledStats->fill(0);
+            enemiesKilledStats->fill(0); // mark 1 for testing as discovered
+
+            /*if (DEBUG)
+            {
+                // For testing purposes, mark some enemies as discovered
+                (*enemiesKilledStats)[0] = 1; // Errant
+            }*/
     }
 
     void Escena_Bestiary::onInit()
@@ -55,24 +61,23 @@ namespace IVJ
         undiscoveredColor = sf::Color(120,120,120);
         enemyNameTexts.clear();
 
-        // Improved layout for 1920x1080
+        // desired layout
         float leftColumnX = 120.f;
-        float leftColumnStartY = 220.f;
-        float leftColumnOffsetY = 80.f;
-        float cardX = 1200.f;
+        float leftColumnStartY = 120.f;
+        float leftColumnOffsetY = 55.f;
+        float cardX = 500.f;
         float cardNameY = 320.f;
         float cardDescY = 420.f;
         float cardStateY = 520.f;
-        //float cardSpriteX = 1350.f;
-        //float cardSpriteY = 260.f;
+        float cardSpriteX = 550.f;
+        float cardSpriteY = 260.f;
 
         for (size_t i = 0; i < ENEMY_NAMES.size(); ++i)
         {
             auto txt = std::make_shared<Texto>(font, "???");
-            //txt->setPosicion(leftColumnX, leftColumnStartY + i * leftColumnOffsetY);
-            txt->setPosicion(100, i * 200 + 100);
-            txt->setTextCharacterSize(48);
-            //enemyNameTexts.push_back(txt);
+            txt->setPosicion(leftColumnX, leftColumnStartY + i * leftColumnOffsetY);
+            txt->setTextCharacterSize(40);
+            enemyNameTexts.push_back(txt);
             objetos.agregarPool(txt);
         }
         cardNameText = std::make_shared<Texto>(font, "???");
@@ -84,8 +89,8 @@ namespace IVJ
         cardStateText = std::make_shared<Texto>(font, "Not discovered");
         cardStateText->setPosicion(cardX, cardStateY);
         cardStateText->setTextCharacterSize(32);
-        //cardSprite = std::make_shared<CE::ISprite>(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[0]), 128, 96, 1.f);
-        //cardSprite->m_sprite.setPosition({cardSpriteX, cardSpriteY});
+        cardSprite = std::make_shared<CE::ISprite>(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[0]), 32, 32, 3.0f);
+        cardSprite->m_sprite.setPosition({cardSpriteX, cardSpriteY});
 
         objetos.agregarPool(cardStateText);
         objetos.agregarPool(cardDescText);
@@ -98,6 +103,14 @@ namespace IVJ
 
     void Escena_Bestiary::onUpdate(float dt)
     {
+        // onUpdate call so the positions are updated
+        // (though they should be static in this scene, if it's not called they appear all
+        // stacked at 0,0)
+        for (auto& obj : objetos.getPool())
+        {
+            obj->onUpdate(dt);
+        }
+
         for (size_t i = 0; i < enemyNameTexts.size(); ++i)
         {
             bool isDiscovered = (*enemiesKilledStats)[i] > 0;
@@ -131,8 +144,8 @@ namespace IVJ
             cardDesc = ENEMY_DESCRIPTIONS[currentSelection];
             cardState = "Discovered";
             cardStateColor = sf::Color::Green;
-            //cardSprite->m_sprite.setColor(sf::Color::White);
-            //cardSprite->m_sprite.setTexture(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[currentSelection]));
+            cardSprite->m_sprite.setColor(sf::Color::White);
+            cardSprite->m_sprite.setTexture(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[currentSelection]));
         }
         else
         {
@@ -140,8 +153,8 @@ namespace IVJ
             cardDesc = "Not discovered yet.";
             cardState = "Not discovered";
             cardStateColor = sf::Color::Red;
-            //cardSprite->m_sprite.setColor(sf::Color(80,80,80));
-            //cardSprite->m_sprite.setTexture(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[currentSelection]));
+            cardSprite->m_sprite.setColor(sf::Color(0,0,0,150));
+            cardSprite->m_sprite.setTexture(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[currentSelection]));
         }
         cardNameText->setTextString(cardName);
         cardDescText->setTextString(cardDesc);
@@ -154,7 +167,7 @@ namespace IVJ
         if (accion.getTipo() != CE::Botones::TipoAccion::OnPress) return;
 
         if (accion.getNombre() == "arriba")
-            {
+        {
             currentSelection = (currentSelection - 1 + 10) % 10;
         }
         else if (accion.getNombre() == "abajo")
@@ -175,9 +188,6 @@ namespace IVJ
         {
             CE::Render::Get().AddToDraw(*txt);
         }
-        //if (cardSprite) CE::Render::Get().AddToDraw(cardSprite->m_sprite);
-        //if (cardNameText) CE::Render::Get().AddToDraw(*cardNameText);
-        //if (cardDescText) CE::Render::Get().AddToDraw(*cardDescText);
-        //if (cardStateText) CE::Render::Get().AddToDraw(*cardStateText);
+        if (cardSprite) CE::Render::Get().AddToDraw(cardSprite->m_sprite);
     }
 }
