@@ -35,7 +35,7 @@ namespace IVJ
         //! NOTE: YOU HAVE TO ADD THE COMPONENTS IN THIS ORDER, OR ELSE THE COLLISION WON'T WORK PROPERLY
         player->addComponente(std::make_shared<CE::ISprite>(
                     CE::GestorAssets::Get().getTextura("hojaPlayer"),
-                    32, 32, 1.f))
+                    32, 32, 1.5f))
                 .addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f * PLAYER_BOUNDINGBOX_FACTOR, 32.f * PLAYER_BOUNDINGBOX_FACTOR}))
                 .addComponente(std::make_shared<IVJ::IMaquinaEstado>())
                 .addComponente(std::make_shared<CE::IControl>());
@@ -224,7 +224,9 @@ namespace IVJ
         sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
 
         player->inputFSM();
-        player->checkPlayerFacingRight(CE::Render::Get().GetVentana());
+        // it looks verbose but it's necessary to update the player facing direction
+        player->setIsEntityFacingRight(
+            player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
 
         //SystemFollowPlayer()
         for (auto& currentObject : objetos.getPool())

@@ -64,6 +64,7 @@ namespace IVJ
         max_time = 0.2f; // in seconds
         time = max_time; // timer
         current_id = 0; // start from the first frame
+        flipSprite(obj);
     }
 
     void IdleState::onSalir(const Entidad &obj)
@@ -95,7 +96,7 @@ namespace IVJ
             time = max_time; // reset timer
             current_id++;
 
-            flipSprite(obj);
+            //flipSprite(obj);
         }
     }
 
@@ -108,7 +109,7 @@ namespace IVJ
 
     FSM* MovingState::onInputs(const CE::IControl &control, const Entidad& obj)
     {
-        if (!control.arr && !control.abj && !control.der && !control.izq)
+        if (!control.arr && !control.abj && !control.der && !control.izq && !control.atacar)
         {
             return new IdleState(shouldFlip);
         }
@@ -173,7 +174,7 @@ namespace IVJ
     {
         // animation framerate
         time = time - 1 * dt;
-        flipSprite(obj);
+        //flipSprite(obj);
 
         if (time <= 0)
         {
@@ -269,7 +270,7 @@ namespace IVJ
     {
         // animation framerate
         time = time - 1 * dt;
-        flipSprite(obj);
+        //flipSprite(obj);
 
         if (time <= 0)
         {
@@ -319,14 +320,13 @@ namespace IVJ
         if (playerStoppedMoving)
             return new AttackingStillState(shouldFlip);
 
-        // if the attack button is released, return to idle or moving state
-        if (!control.atacar)
-            return new MovingState(shouldFlip); // !obj->getIsEntityFacingRight()
-
         if (control.der)
             shouldFlip = false;
         if (control.izq)
             shouldFlip = true;
+        // if the attack button is released, return to idle or moving state
+        if (!control.atacar)
+            return new MovingState(shouldFlip); // !obj->getIsEntityFacingRight()
 
         return nullptr;
     }
@@ -363,7 +363,7 @@ namespace IVJ
     void AttackingMovingState::onUpdate(const Entidad &obj, float dt)
     {
         time = time - 1 * dt;
-        flipSprite(obj);
+        //flipSprite(obj);
 
         if (time <= 0)
         {

@@ -166,7 +166,7 @@ namespace IVJ
             }
             if (i == currentSelection)
             {
-                //displayColor = sf::Color::Yellow; // not neccesary anymore, the icon indicates the selection
+                displayColor = sf::Color::Yellow; // not neccesary anymore, the icon indicates the selection
             }
             enemyNameTexts[i]->setTextString(displayName);
             enemyNameTexts[i]->setTextFillColor(displayColor);
