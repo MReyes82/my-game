@@ -9,6 +9,10 @@
 #include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorEscenas.hpp"
 
+#define BESTIARY_BG_WIDTH 1250.f
+#define BESTIARY_BG_HEIGHT 700.f
+
+
 namespace IVJ
 {
     // Helper: enemy names and descriptions
@@ -17,9 +21,9 @@ namespace IVJ
         "Burglar", "Blaster", "Jockey", "Burster", "Chongus"
     };
     std::array<std::string, 10> ENEMY_DESCRIPTIONS = {
-        "A wandering zombie.", "Crawls quickly.", "Strong and aggressive.", "Has a shield.",
-        "Summons more zombies.", "Steals items.", "Explodes on death.", "Jumps on player.",
-        "Spits acid.", "Huge and tough."
+        "A wandering zombie.", "It crawls.", "Strong and aggressive.", "Has a shield.",
+        "It summons zombies.", "Steals items.", "Explodes randomly.", "Extremely quick.",
+        "Throws projectiles.", "Huge and tough."
     };
     std::array<std::string, 10> ENEMY_SPRITES = {
         "hojaErrante", "hojaCrawler", "hojaBerserker", "hojaShielded", "hojaSummoner",
@@ -31,25 +35,52 @@ namespace IVJ
     {
             enemiesKilledStats = std::make_shared<std::array<int, 10>>();
             enemiesKilledStats->fill(0); // mark 1 for testing as discovered
+            // NOTE: currently marking everything as discovered causes undefined behavior, since
+            // we don't currently have all the sprite sheets, sometimes it crashes
 
-            /*if (DEBUG)
+            /*if (!DEBUG)
             {
                 // For testing purposes, mark some enemies as discovered
                 (*enemiesKilledStats)[0] = 1; // Errant
             }*/
     }
 
+    void Escena_Bestiary::addMenuOptPositions()
+    {
+        // TODO: adjust the X offset based from the text length so the icon
+        // is always at the same distance from the text
+        for (auto i = 0; i < enemyNameTexts.size(); ++i)
+        {
+            constexpr float yOffset = 33.f;
+            constexpr float xOffset = 300.f;
+            menuOptionsPositions[i] = {
+                enemyNameTexts[i]->getTransformada()->posicion.x + xOffset,
+                enemyNameTexts[i]->getTransformada()->posicion.y + yOffset
+            };
+        }
+    }
+
     void Escena_Bestiary::onInit()
     {
-        // TOOD: FIND WHY THE POSITIONS ARE NOT BEING CHANGED
-        CE::GestorCamaras::Get().setCamaraActiva(0);
         if (!newInstance)
+        {
+            CE::GestorCamaras::Get().setCamaraActiva(2);
             return;
+        }
+
+        CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraCuadro>(
+            CE::Vector2D{BESTIARY_BG_WIDTH / 2.f, BESTIARY_BG_HEIGHT / 2.f}, CE::Vector2D{BESTIARY_BG_WIDTH, BESTIARY_BG_HEIGHT}));
+        CE::GestorCamaras::Get().setCamaraActiva(2);
 
         if (!font.openFromFile(ASSETS "/fonts/NotJamSlab14.ttf"))
         {
             return;
         }
+
+        if (!backgroundImage.loadTileMap(ASSETS "/mapas/bestiary_background.txt"))
+            exit(EXIT_FAILURE);
+
+        icon = std::make_shared<CE::ISprite>(CE::GestorAssets::Get().getTextura("iconoGrande"),160,150,0.5f);
 
         registrarBotones(sf::Keyboard::Scancode::W, "arriba");
         registrarBotones(sf::Keyboard::Scancode::Up, "arriba");
@@ -62,39 +93,41 @@ namespace IVJ
         enemyNameTexts.clear();
 
         // desired layout
-        float leftColumnX = 120.f;
-        float leftColumnStartY = 120.f;
+        float leftColumnX = 140.f;
+        float leftColumnStartY = 60.f;
         float leftColumnOffsetY = 55.f;
-        float cardX = 500.f;
+        float cardX = 660.f;
         float cardNameY = 320.f;
         float cardDescY = 420.f;
         float cardStateY = 520.f;
-        float cardSpriteX = 550.f;
-        float cardSpriteY = 260.f;
+        float cardSpriteX = 720.f;
+        float cardSpriteY = 240.f;
 
         for (size_t i = 0; i < ENEMY_NAMES.size(); ++i)
         {
             auto txt = std::make_shared<Texto>(font, "???");
             txt->setPosicion(leftColumnX, leftColumnStartY + i * leftColumnOffsetY);
-            txt->setTextCharacterSize(40);
+            txt->setTextCharacterSize(50);
             enemyNameTexts.push_back(txt);
             objetos.agregarPool(txt);
         }
         cardNameText = std::make_shared<Texto>(font, "???");
         cardNameText->setPosicion(cardX, cardNameY);
-        cardNameText->setTextCharacterSize(64);
+        cardNameText->setTextCharacterSize(80);
         cardDescText = std::make_shared<Texto>(font, "Not discovered yet.");
         cardDescText->setPosicion(cardX, cardDescY);
-        cardDescText->setTextCharacterSize(36);
+        cardDescText->setTextCharacterSize(46);
         cardStateText = std::make_shared<Texto>(font, "Not discovered");
         cardStateText->setPosicion(cardX, cardStateY);
-        cardStateText->setTextCharacterSize(32);
+        cardStateText->setTextCharacterSize(42);
         cardSprite = std::make_shared<CE::ISprite>(CE::GestorAssets::Get().getTextura(ENEMY_SPRITES[0]), 32, 32, 3.0f);
         cardSprite->m_sprite.setPosition({cardSpriteX, cardSpriteY});
 
         objetos.agregarPool(cardStateText);
         objetos.agregarPool(cardDescText);
         objetos.agregarPool(cardNameText);
+
+        addMenuOptPositions();
 
         newInstance = false;
     }
@@ -103,6 +136,8 @@ namespace IVJ
 
     void Escena_Bestiary::onUpdate(float dt)
     {
+        icon->m_sprite.setPosition({menuOptionsPositions[currentSelection].x, menuOptionsPositions[currentSelection].y});
+
         // onUpdate call so the positions are updated
         // (though they should be static in this scene, if it's not called they appear all
         // stacked at 0,0)
@@ -123,17 +158,20 @@ namespace IVJ
             }
             else
             {
+                constexpr float offsetToCenter = 40.f; // small offset for when it has to display "???", so it's centered
                 displayName = "???";
                 displayColor = undiscoveredColor;
+                // todo: fix this, add conditional so it doesn't keep adding the offset every frame
+                //enemyNameTexts[i]->setPosicion(enemyNameTexts[i]->getTransformada()->posicion.x + offsetToCenter, enemyNameTexts[i]->getTransformada()->posicion.y);
             }
             if (i == currentSelection)
             {
-                displayColor = sf::Color::Yellow;
+                //displayColor = sf::Color::Yellow; // not neccesary anymore, the icon indicates the selection
             }
             enemyNameTexts[i]->setTextString(displayName);
             enemyNameTexts[i]->setTextFillColor(displayColor);
         }
-        bool isCardDiscovered = (*enemiesKilledStats)[currentSelection] > 0;
+        const bool isCardDiscovered = (*enemiesKilledStats)[currentSelection] > 0;
         std::string cardName;
         std::string cardDesc;
         std::string cardState;
@@ -183,11 +221,14 @@ namespace IVJ
 
     void Escena_Bestiary::onRender()
     {
-        CE::Render::Get().OnClearColor(sf::Color::Black);
+        //CE::Render::Get().OnClearColor(sf::Color::Black);
+        CE::Render::Get().AddToDraw(backgroundImage);
         for (auto& txt : objetos.getPool())
         {
-            CE::Render::Get().AddToDraw(*txt);
+            // TODO: find where is the undefined behaviour occurring here
+            if (txt) CE::Render::Get().AddToDraw(*txt); // this safe check shouldn't be neccesary, but it seems to work idk why
         }
         if (cardSprite) CE::Render::Get().AddToDraw(cardSprite->m_sprite);
+        if (icon) CE::Render::Get().AddToDraw(icon->m_sprite);
     }
 }

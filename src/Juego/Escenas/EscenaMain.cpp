@@ -196,7 +196,7 @@ namespace IVJ
         initPlayerPointer();
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
-            CE::Vector2D{540.f, 360.f}, CE::Vector2D{1080.f, 720.f}));
+            CE::Vector2D{540.f, 360.f}, CE::Vector2D{1900.f, 1020.f}));
         CE::GestorCamaras::Get().setCamaraActiva(1);
         CE::GestorCamaras::Get().getCamaraActiva().lockEnObjeto(player);
 

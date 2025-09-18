@@ -65,7 +65,7 @@ namespace CE
 #if DEBUG
         gui_layers.push_back(std::make_shared<GListaObjetos>());
 #endif
-        GestorCamaras::Get().agregarCamara(std::make_shared<Camara>(Vector2D{540,360},Vector2D{1080,720}));
+        GestorCamaras::Get().agregarCamara(std::make_shared<Camara>(Vector2D{540,360},Vector2D{1900,1020}));
         GestorCamaras::Get().setCamaraActiva(0);
 
         mi_app->OnInit();
