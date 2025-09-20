@@ -66,7 +66,7 @@ if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     add_compile_options(-ggdb -Wall -Wextra)
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb")
 else()
-    add_compile_options(-O2)
+     #add_compile_options(-O2)
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 endif()
 

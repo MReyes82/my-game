@@ -36,7 +36,6 @@ namespace IVJ
             enemiesKilledStats = std::make_shared<std::array<int, 10>>();
             enemiesKilledStats->fill(0); // mark 1 for testing as discovered
             // NOTE: currently marking everything as discovered causes undefined behavior, since
-            // we don't currently have all the sprite sheets, sometimes it crashes
 
             /*if (!DEBUG)
             {
@@ -221,14 +220,12 @@ namespace IVJ
 
     void Escena_Bestiary::onRender()
     {
-        //CE::Render::Get().OnClearColor(sf::Color::Black);
         CE::Render::Get().AddToDraw(backgroundImage);
         for (auto& txt : objetos.getPool())
         {
-            // TODO: find where is the undefined behaviour occurring here
-            if (txt) CE::Render::Get().AddToDraw(*txt); // this safe check shouldn't be neccesary, but it seems to work idk why
+            CE::Render::Get().AddToDraw(*txt);
         }
-        if (cardSprite) CE::Render::Get().AddToDraw(cardSprite->m_sprite);
-        if (icon) CE::Render::Get().AddToDraw(icon->m_sprite);
+        CE::Render::Get().AddToDraw(cardSprite->m_sprite);
+        CE::Render::Get().AddToDraw(icon->m_sprite);
     }
 }
