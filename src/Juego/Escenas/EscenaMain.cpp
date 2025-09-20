@@ -45,7 +45,7 @@ namespace IVJ
         fsm_init  = std::make_shared<IdleState>(player->getIsEntityFacingRight());
         fsm_init->onEntrar(*player);
 
-        player->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+        player->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PLAYER));
 
         objetos.agregarPool(player);
     }
@@ -81,13 +81,14 @@ namespace IVJ
             constexpr float enemyScale = 1.f;
             const int randomSpawnIndex = rand() % spawnPositions.size();
             enemy->setPosicion(spawnPositions[randomSpawnIndex].x, spawnPositions[randomSpawnIndex].y);
-            AdjustEntityStats(enemy, randNum);
+            SystemAdjustEntityStats(enemy, randNum);
 
             enemy->addComponente(std::make_shared<CE::ISprite>(
                CE::GestorAssets::Get().getTextura(enemyType), enemyWidth, enemyHeight, enemyScale))
             .addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{(enemyWidth - 8.f) * enemyScale, (enemyHeight - 8.f) * enemyScale}))
             .addComponente(std::make_shared<IVJ::IMaquinaEstado>())
             .addComponente(std::make_shared<CE::IControl>())
+            .addComponente(std::make_shared<CE::INombre>("enemy" + std::to_string(i)))
             ;
 
             auto& fsm_init = enemy->getComponente<IMaquinaEstado>()->fsm;
@@ -214,7 +215,9 @@ namespace IVJ
     {
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
+        //auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
         //SystemFollowPlayer(objetos.getPool(), *player, dt);
+
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
 
         // check if round has ended, if so, summon new enemies

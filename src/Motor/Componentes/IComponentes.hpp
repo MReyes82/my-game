@@ -11,6 +11,28 @@ namespace IVJ
 
 namespace CE
 {
+    /*
+     * Weapon type enum, values are the offset for the player spritesheet
+     * on the FSM, so when updating, we take the values from here.
+     */
+    enum class WEAPON_TYPE
+    {
+        NONE = -1,
+        KNIFE = 0,
+        REVOLVER =  128,
+        SHOTGUN = 256,
+        SMG = 384,
+        RIFLE = 512,
+    };
+
+    enum class UTILITY_TYPE
+    {
+        NONE = -1,
+        BANDAGE = 0,
+        MEDKIT = 1,
+        ENERGY_DRINK = 2
+    };
+
     enum class ENTITY_TYPE
     {
         PLAYER = 0xAAA,
@@ -149,6 +171,7 @@ namespace CE
             bool jmp;
             bool atacar;
             bool interactuar;
+            bool swapWeapon; // swap between melee and any other weapon
     };
 
     class IBoundingBox: public IComponentes
@@ -200,6 +223,39 @@ namespace CE
 
             ENTITY_TYPE type {};
     };
+
+    class IWeapon : public IComponentes
+    {
+        public:
+            explicit IWeapon(WEAPON_TYPE t) : type{t} {}
+            ~IWeapon() override = default;
+
+            WEAPON_TYPE type;// {WEAPON_TYPE::NONE};
+            int currentMagBullets; // bullets in the magazine at runtime
+            int maxWeaponBullets; // max bullets the weapon can hold
+            int magSize; // size of each magazine
+            float fireRate; // bullets per second
+            float reloadTime; // time to reload in seconds
+            bool isReloading {false};
+            bool isKnife {false}; // flag to identify if the weapon is a knife (melee), to simplify checks
+    };
+    class IUtility : public IComponentes
+    {
+        public:
+            explicit IUtility(UTILITY_TYPE t) : type{t} {}
+            ~IUtility() override = default;
+
+            UTILITY_TYPE type;// {UTILITY_TYPE::NONE};
+            int quantity; // quantity of the utility item (e.g., number of bandages), so it can be stacked when picking up the same item
+    };
+    /*class IItems : public IComponentes
+    {
+        public:
+            explicit IItems();
+            ~IItems() override = default;
+
+
+    };*/
 }
 
 

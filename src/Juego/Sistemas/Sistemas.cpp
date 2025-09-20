@@ -198,9 +198,13 @@ namespace IVJ
 
     // system for enemies to follow the player
     // TODO: improve the following logic, currently using old version
-    void SystemFollowPlayer(std::vector<std::shared_ptr<CE::Objeto> > &chasers, CE::Objeto &target, float dt)
+    void SystemFollowPlayer(std::vector<std::shared_ptr<CE::Objeto>>& chasers, CE::Objeto &target, float dt)
     {
-        constexpr float followDistance = 12.f;
+        // TODO: implement a following logic where it calculates how much it has to move based on the distance to the player
+        // (calculating the vector2D)
+        // only changing the velocidad->x and y.
+    }
+        /*constexpr float followDistance = 12.f;
         constexpr float separationDistance = 50.f;
         const float separationStrength = 1.5f;
         const float seekWeight = 1.0f;
@@ -260,8 +264,7 @@ namespace IVJ
             auto& chaserCast = dynamic_cast<Entidad&>(*chaser);
             if (chaserCast.getCollidedWithAnotherEntity())
                 chaserTransform.velocidad = {0.f, 0.f};
-        }
-    }
+        }*/
 
     // System for choosing enemy type based on a rand number (0 <= NUM <= 3)
     std::string SystemChooseEnemyType(const int num)
@@ -291,7 +294,31 @@ namespace IVJ
         return choice;
     }
 
-    void AdjustEntityStats(std::shared_ptr<CE::Objeto> entity, const int type)
+    // system to choose a random loot item, if isWeapon is true, it will choose between 4 weapons, otherwise between 3 for utils
+    int SystemChooseRandLootItem(const bool isWeapon)
+    {
+        // seed random number generator
+        std::srand(static_cast<unsigned int>(std::time(nullptr)));
+        // check if it's a weapon or a util, to know the range of the random number
+        if (isWeapon)
+        {
+            // random number between 0 and 3
+            return std::rand() % 4;
+        }
+        // random number between 0 and 2
+        return std::rand() % 3;
+    }
+
+    // system that will choose a random position from the array passed as parameter
+    CE::Vector2D getRandomPosition(std::array<CE::Vector2D, 20> positionsArr)
+    {
+        std::srand (static_cast<unsigned int>(std::time(nullptr)));
+        const int randIndex = std::rand() % positionsArr.size();
+        return positionsArr[randIndex];
+    }
+
+    // system to adjust entity stats based on enemy type
+    void SystemAdjustEntityStats(std::shared_ptr<CE::Objeto> entity, const int type)
     {
         float baseSpeed = 100.f;
         const auto stats = entity->getStats();
@@ -324,21 +351,27 @@ namespace IVJ
         }
     }
 
-    std::vector<std::shared_ptr<CE::Objeto>>& getEntityTypeVector(std::vector<std::shared_ptr<CE::Objeto>>& entities, CE::ENTITY_TYPE entityType)
+    // system to get a vector of entities references of the type passed on the parameter entityType, making the cast to Entidad from Objeto
+    std::vector<std::shared_ptr<Entidad>>& SystemGetEntityTypeVector(std::vector<std::shared_ptr<CE::Objeto>>& entities, CE::ENTITY_TYPE entityType)
     {
-        std::vector<std::shared_ptr<CE::Objeto>>* result = new std::vector<std::shared_ptr<CE::Objeto>>();
+        auto result = new std::vector<std::shared_ptr<Entidad>>();
         for (auto& obj : entities)
         {
             if (!obj->tieneComponente<CE::IEntityType>())
                 continue;
 
             if (obj->getComponente<CE::IEntityType>()->type == entityType)
-                result->push_back(obj);
+            {
+                auto entCast = std::dynamic_pointer_cast<Entidad>(obj);
+                if (entCast)  // Check if the cast was successful
+                    result->push_back(entCast);
+            }
         }
 
         return *result;
     }
 
+    // system to check limits of entities in the scene, if they reach the limit they will invert their velocity
     void SystemCheckLimits(std::vector<std::shared_ptr<CE::Objeto>>& entes, const unsigned int dimensionX, const unsigned int dimensionY)
     {
         for (auto& ente : entes)
@@ -358,4 +391,69 @@ namespace IVJ
                 vel.y = -vel.y;
         }
     }
+
+    void SystemUpdatePlayerWeaponStats(const CE::WEAPON_TYPE weaponType, const std::shared_ptr<Entidad>& player)
+    {
+        auto stats = player->getStats();
+        auto weapon = player->getComponente<CE::IWeapon>();
+        if (!weapon)
+            return;
+
+        weapon->type = weaponType;
+
+        switch (weaponType)
+        {
+            case CE::WEAPON_TYPE::KNIFE:
+                stats->damage = 5;
+                // -1 value for any of the ammo values since it does not have
+                weapon->currentMagBullets = -1;
+                weapon->magSize = -1;
+                weapon->maxWeaponBullets = -1;
+                weapon->reloadTime = -1;
+                weapon->fireRate = 0.1f;
+            break;
+
+            case CE::WEAPON_TYPE::REVOLVER:
+                stats->damage = 2;
+                weapon->currentMagBullets = 6;
+                weapon->magSize = 6;
+                weapon->maxWeaponBullets = 36; // 6 mags
+                weapon->reloadTime = 0.5f;
+                weapon->fireRate = 0.8f; // 0.8 seconds between shots
+            break;
+
+            case CE::WEAPON_TYPE::SHOTGUN:
+                stats->damage = 10;
+                weapon->currentMagBullets = 5;
+                weapon->magSize = 5;
+                weapon->maxWeaponBullets = 25; // 5 mags
+                weapon->reloadTime = 1.0f;
+                weapon->fireRate = 1.2f; // 1.2 seconds between
+            break;
+
+            case CE::WEAPON_TYPE::SMG:
+                stats->damage = 3;
+                weapon->currentMagBullets = 25;
+                weapon->magSize = 25;
+                weapon->maxWeaponBullets = 100; // 4 mags
+                weapon->reloadTime = 1.5f;
+                weapon->fireRate = 0.0833f ; // 12 bullets per second
+            break;
+
+            case CE::WEAPON_TYPE::RIFLE:
+                stats->damage = 5;
+                weapon->currentMagBullets = 30;
+                weapon->magSize = 30;
+                weapon->maxWeaponBullets = 90; // 3 mags
+                weapon->reloadTime = 2.0f;
+                weapon->fireRate = 0.1f; // 10 bullets per second
+            break;
+
+            default:
+                CE::printDebug("[SISTEMAS] Error: weapon type not recognized");
+            break;
+        }
+    }
+
+
 }

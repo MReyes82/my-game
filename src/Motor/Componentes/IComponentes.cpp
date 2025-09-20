@@ -108,14 +108,15 @@ namespace CE
     //Control
     IControl::IControl()
     {
-        arr=false;
-        abj=false;
-        izq=false;
-        der=false;
-        run=false;
-        jmp=false;
-        atacar=false;
-        interactuar=false;
+        arr = false;
+        abj = false;
+        izq = false;
+        der = false;
+        run = false;
+        jmp = false;
+        atacar = false;
+        interactuar = false;
+        swapWeapon = false;
     }
 
     IBoundingBox::IBoundingBox(const Vector2D& dim)

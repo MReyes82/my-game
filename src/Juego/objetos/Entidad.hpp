@@ -34,11 +34,7 @@ namespace IVJ
             bool checkPlayerFacingRight(const sf::RenderWindow& window);
             void setIsEntityFacingRight(const bool facingRight) { isEntityFacingRight = facingRight; }
             bool getIsEntityFacingRight() const { return isEntityFacingRight; }
-            void setCollidedWithAnotherEntity(const bool collided)
-            {
-                collidedWithAnotherEntity = collided;
-                //CE::printDebug("[ENTIDAD] setCollidedWithAnotherEntity called");
-            }
+            void setCollidedWithAnotherEntity(const bool collided) { collidedWithAnotherEntity = collided; }
             bool getCollidedWithAnotherEntity() const { return collidedWithAnotherEntity; }
             void applyKnockback(CE::Vector2D direction, float force);
 
@@ -47,6 +43,10 @@ namespace IVJ
             void checkAndApplyDamage(std::uint8_t damage);
             bool isDamageAnimationActive = false;
             void checkDamageAnimation();
+
+    public:
+            // weapon for the player entity only, this is so the player can switch weapons from the KNIFE (default and any weapon)
+            std::shared_ptr<CE::IWeapon> carryingWeapon = nullptr;
 
     private:
             bool isEntityFacingRight = false;
