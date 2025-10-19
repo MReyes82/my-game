@@ -103,8 +103,8 @@ namespace IVJ
         return mousePos.x >= windowWidthHalf;
     }
 
-    // check if the timer has reached its max value and reset if so
-    bool Entidad::hasTimerReachedMax(std::shared_ptr<CE::ITimer> timer) const
+    // check if the timer has reached its max value (NO RESET)
+    bool Entidad::hasTimerReachedMax(CE::ITimer* timer) const
     {
         bool ans = false;
         if (timer == nullptr)
@@ -116,26 +116,34 @@ namespace IVJ
         if (timer->frame_actual >= timer->max_frame)
         {
             ans = true;
-            timer->frame_actual = 0; // reset
         }
 
         return ans;
     }
 
+    void Entidad::resetTimer(CE::ITimer* timer)
+    {
+        if (timer == nullptr)
+            return;
+
+        timer->frame_actual = 0;
+    }
+
+    // apply damage if the entity has been hit NOTE: already tested and working
     void Entidad::checkAndApplyDamage(std::uint8_t damage)
     {
         // assume it has IStats component, since every object has it (declared in constructor)
         if (Entidad::hasBeenHit)
         {
             getStats()->hp -= damage;
+            /*
+            * Now apply red flash animation to sprite
+            * Is set here to begin the flash animation
+            */
+            auto eSprite = getComponente<CE::ISprite>();
+            eSprite->m_sprite.setColor(sf::Color::Red);
+            Entidad::isDamageAnimationActive = true;
         }
-        /*
-         * Now apply red flash animation to sprite
-         * Is set here to begin the flash animation
-         */
-        auto eSprite = getComponente<CE::ISprite>();
-        eSprite->m_sprite.setColor(sf::Color::Red);
-        Entidad::isDamageAnimationActive = true;
     }
 
     void Entidad::applyKnockback(CE::Vector2D direction, float force)
@@ -147,18 +155,18 @@ namespace IVJ
         eTransform->posicion += direction.escala(force);
     }
 
-    // check current state of damage animation
+    // check current state of damage animation NOTE: already tested and working
     void Entidad::checkDamageAnimation()
     {
-        if (Entidad::isDamageAnimationActive)
+        if (isDamageAnimationActive)
         {
             damageTimer->frame_actual++;
-            if (hasTimerReachedMax(damageTimer))
+            if (hasTimerReachedMax(damageTimer.get()))
             {
                 const auto eSprite = getComponente<CE::ISprite>();
                 eSprite->m_sprite.setColor(sf::Color::White);
-                Entidad::isDamageAnimationActive = false;
-                //Entidad::hasBeenHit = false;
+                isDamageAnimationActive = false;
+                resetTimer(damageTimer.get());
             }
         }
     }

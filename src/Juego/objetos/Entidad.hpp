@@ -30,7 +30,8 @@ namespace IVJ
             void inputFSM();
 
             //methods for game mechanics
-            bool hasTimerReachedMax(std::shared_ptr<CE::ITimer> timer) const;
+            bool hasTimerReachedMax(CE::ITimer* timer) const;
+            void resetTimer(CE::ITimer* timer);
             bool checkPlayerFacingRight(const sf::RenderWindow& window);
             void setIsEntityFacingRight(const bool facingRight) { isEntityFacingRight = facingRight; }
             bool getIsEntityFacingRight() const { return isEntityFacingRight; }
@@ -47,10 +48,14 @@ namespace IVJ
     public:
             // weapon for the player entity only, this is so the player can switch weapons from the KNIFE (default and any weapon)
             std::shared_ptr<CE::IWeapon> carryingWeapon = nullptr;
+            std::shared_ptr<CE::ITimer> damageTimer = nullptr;
+            std::shared_ptr<CE::ITimer> velocityBoostTimer = nullptr; // for energy drink effect in player and other effects for other entities
+            bool shouldChangeWeapon = false; // flag to indicate if the player weapon needs to be changed (plauyer only)
+            bool shouldChangeUtility = false; // flag to indicate if the player utility item needs to be changed (player only)
+            bool isVelocityBoostActive = false; // flag to indicate if the velocity boost effect is active (player only)
 
     private:
             bool isEntityFacingRight = false;
             bool collidedWithAnotherEntity = false;
-            std::shared_ptr<CE::ITimer> damageTimer = nullptr;
     };
 }

@@ -27,7 +27,7 @@ namespace  IVJ
         overlayCenter->posicion = pos;
     }
 
-    void Overlay::updateElements(InfoUI elements)
+    void Overlay::updateElements(const InfoUI elements)
     {
         // this method works as a re-constructor as it updates all attributes
         // from this class's InfoUI object
@@ -42,10 +42,12 @@ namespace  IVJ
 
         if (displayElements.getScore() != elements.getScore())
             displayElements.setScore(elements.getScore());
-        // space for weapon and utility types
-        /*
-         *
-         */
+
+        if (displayElements.getWeapon() != elements.getWeapon())
+            displayElements.setWeapon(elements.getWeapon());
+
+        if (displayElements.getUtility() != elements.getUtility())
+            displayElements.setUtility(elements.getUtility());
     }
     /*
      * NOTE: this constructor assumes that the sprite textures of the elements are already loaded before call
@@ -56,7 +58,7 @@ namespace  IVJ
           roundText{font, ""},
           crosshair{CE::GestorAssets::Get().getTextura("crosshair"), 15, 17, 1.5f},
           heartSprite{CE::GestorAssets::Get().getTextura("heartSprite"), 8, 8, 1.5f},
-          weaponSprite{CE::GestorAssets::Get().getTextura("weaponIconsSprite"), 17, 44, 1.5f},
+          weaponSprite{CE::GestorAssets::Get().getTextura("weaponIconsSprite"), 10, 11, 1.5f},
           ammoSprite{CE::GestorAssets::Get().getTextura("ammoIconSprite"), 8, 8, 2.f},
           utilitySprite{CE::GestorAssets::Get().getTextura("utilityIconSprite"), 14, 10, 1.25f},
           weaponCageSprite{CE::GestorAssets::Get().getTextura("weaponCageSprite"), 18, 18, 1.25f},
@@ -112,7 +114,6 @@ namespace  IVJ
         // Position score text at top-right relative to center
         scoreText.setPosition({centerX + 105, centerY - 130});
         scoreToText.setPosition({centerX + 105, centerY - 100});
-
         // Center-relative positions
         reloadingText.setPosition({centerX - 40.f, centerY});
         roundText.setPosition({centerX - 120.f, centerY - 60.f});
@@ -127,6 +128,25 @@ namespace  IVJ
 
         // Ammo sprite relative to center
         ammoSprite.m_sprite.setPosition({centerX + 120, centerY + 23});
+        if (displayElements.getWeapon() != CE::WEAPON_TYPE::KNIFE)
+        {
+            ammoText.setPosition({centerX + 130, centerY + 16});
+            ammoText.setString(std::to_string(displayElements.getCurrentAmmo()) + " / " +
+                               std::to_string(displayElements.getMaxAmmo()));
+        }
+        else
+        {
+            ammoText.setPosition({centerX + 130, centerY + 20});
+            ammoText.setString("");
+        }
+
+        utilityCageSprite.m_sprite.setPosition({centerX + 147, centerY + 30});
+        // Center the utility sprite within the cage
+        const auto utilityBoxBounds = utilityCageSprite.m_sprite.getGlobalBounds();
+        const auto utilityBounds = utilitySprite.m_sprite.getGlobalBounds();
+        const float utilityCenterX = utilityBoxBounds.position.x + (utilityBoxBounds.size.x / 2) - (utilityBounds.size.x / 2);
+        const float utilityCenterY = utilityBoxBounds.position.y + (utilityBoxBounds.size.y / 2) - (utilityBounds.size.y / 2);
+        utilitySprite.m_sprite.setPosition({utilityCenterX, utilityCenterY});
 
         // Hearts positioned at bottom-left relative to center
         setHeartPositions(centerX - 180.f, centerY - 120.f);
@@ -165,10 +185,14 @@ namespace  IVJ
          * By default this sprite is set to the bandage one just because it needs
          * to be initialized with something
          */
-        // space for the utility and weapon type check
+        if (displayElements.getUtility() != CE::UTILITY_TYPE::NONE)
+            render.AddToDraw(utilityCageSprite.m_sprite);
+        if (displayElements.getWeapon() != CE::WEAPON_TYPE::KNIFE)
+            render.AddToDraw(ammoSprite.m_sprite);
+
         render.AddToDraw(scoreText);
         render.AddToDraw(scoreToText);
-        //render.AddToDraw(ammoSprite.m_sprite);
+        render.AddToDraw(ammoText);
 
         drawCurrentHealth(render);
     }
@@ -189,15 +213,18 @@ namespace  IVJ
     void OverlayMain::updateElements(InfoUI elements)
     {
         // retrieve current weapon before the update
-        //const auto currentWeapon = displayElements.getWeapon();
-        //const auto currentUtility = displayElements.getUtility();
+        const auto currentWeapon = displayElements.getWeapon();
+        const auto currentUtility = displayElements.getUtility();
+
         Overlay::updateElements(elements);
-        /*
-         *if (currentWeapon != displayElements.getWeapon())
-         *    setWeaponSprite(displayElements.getWeapon());
-         *if (currentUtility != displayElements.getUtility())
-         *    setUtilitySprite(displayElements.getUtility());
-         */
+        // update the weapon and utility sprites if they have changed
+         if (currentWeapon != displayElements.getWeapon())
+             // if the weapon is different, update the sprite
+             setWeaponSprite(displayElements.getWeapon());
+         if (currentUtility != displayElements.getUtility())
+             // if the utility is different, update the sprite
+             setUtilitySprite(displayElements.getUtility());
+
     }
 
     // main update method of the class, to be called on the scene update method
@@ -213,4 +240,67 @@ namespace  IVJ
         setPosition(cameraPos);
         setElementsPosition(render.GetVentana().getSize().x, render.GetVentana().getSize().y);
     }
+
+    // update the spritesheet TextureRect based on the current utility type
+    void OverlayMain::setUtilitySprite(CE::UTILITY_TYPE utility)
+    {
+        switch (utility)
+        {
+        case CE::UTILITY_TYPE::NONE:
+            CE::printDebug("[OVERLAY] Warning: trying to set utility sprite to NONE type");
+            break;
+
+        case CE::UTILITY_TYPE::BANDAGE:
+            utilitySprite.m_sprite.setTextureRect(sf::IntRect{{0, 0}, {14, 10}});
+            break;
+
+        case CE::UTILITY_TYPE::MEDKIT:
+            utilitySprite.m_sprite.setTextureRect(sf::IntRect{{0, 11}, {14, 10}});
+
+        case CE::UTILITY_TYPE::ENERGY_DRINK:
+            utilitySprite.m_sprite.setTextureRect(sf::IntRect{{0, 22}, {8, 9}});
+
+        default:
+            CE::printDebug("[OVERLAY] Warning: default case reached in setUtilitySprite");
+            break;
+        }
+    }
+
+    // update the spritesheet TextureRect based on the current weapon type
+    void OverlayMain::setWeaponSprite(CE::WEAPON_TYPE weapon)
+    {
+        switch (weapon)
+        {
+        case CE::WEAPON_TYPE::NONE:
+            CE::printDebug("[OVERLAY] Warning: trying to set weapon sprite to NONE type");
+            break;
+
+        case CE::WEAPON_TYPE::KNIFE:
+            weaponSprite.m_sprite.setTextureRect(sf::IntRect{{0, 0}, {10, 11}});
+            break;
+
+        case CE::WEAPON_TYPE::REVOLVER:
+            weaponSprite.m_sprite.setTextureRect(sf::IntRect{{0, 12}, {11, 7}});
+            break;
+
+        case CE::WEAPON_TYPE::SHOTGUN:
+            weaponSprite.m_sprite.setTextureRect(sf::IntRect{{0, 20}, {15, 6}});
+            weaponSprite.m_sprite.setScale({1.25f, 1.25f}); // update also the scale so it doesn't look too small
+            break;
+
+        case CE::WEAPON_TYPE::SMG:
+            weaponSprite.m_sprite.setTextureRect(sf::IntRect{{0, 27}, {16, 10}});
+            weaponSprite.m_sprite.setScale({1.f, 1.f}); // update also the scale so it doesn't look too small
+            break;
+
+        case CE::WEAPON_TYPE::RIFLE:
+            weaponSprite.m_sprite.setTextureRect(sf::IntRect{{0, 38}, {17, 6}});
+            break;
+
+        default:
+            CE::printDebug("[OVERLAY] Warning: default case reached in setWeaponSprite");
+            break;
+        }
+    }
+
 }

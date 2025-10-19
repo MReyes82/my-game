@@ -4,6 +4,7 @@
 
 #include "Juego/Figuras/Figuras.hpp"
 #include "Juego/objetos/Entidad.hpp"
+#include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Utils/Lerp.hpp"
 #include "Motor/Utils/Utils.hpp"
 
@@ -28,18 +29,18 @@ namespace IVJ
         if(c->izq)
             p->velocidad.x=-s->maxSpeed;
         if(c->run)
-            #if DEBUG
+#if DEBUG
             p->velocidad.escala(4.0f);
-            #else
-            p->velocidad.escala(1.5f);
-            #endif
+#else
+                p->velocidad.escala(1.5f);
+#endif
         if (c->atacar)
             CE::printDebug("Atacando");
         if (c->interactuar)
             CE::printDebug("Interanctuando");
 
     }
-
+    // for any object that belongs to a pool
     void SistemaMover(const std::vector<std::shared_ptr<CE::Objeto>>& entes, float dt)
     {
         for(auto& ente : entes)
@@ -49,6 +50,16 @@ namespace IVJ
             trans->posicion.suma(trans->velocidad.escala(dt));
         }
     }
+    // same system as above, but when manipulating Entidad objects directly
+    void SistemaMoverEntidad(const std::vector<std::shared_ptr<Entidad>>& entes, float dt)
+    {
+        for (auto& ente : entes)
+        {
+            auto trans = ente->getTransformada();
+            trans->posicion.suma(trans->velocidad.escala(dt));
+        }
+    }
+
     bool SistemaColAABB(CE::Objeto& A, CE::Objeto& B, bool resolucion)
     {
         if(!A.tieneComponente<CE::IBoundingBox>() || !B.tieneComponente<CE::IBoundingBox>())
@@ -204,67 +215,67 @@ namespace IVJ
         // (calculating the vector2D)
         // only changing the velocidad->x and y.
     }
-        /*constexpr float followDistance = 12.f;
-        constexpr float separationDistance = 50.f;
-        const float separationStrength = 1.5f;
-        const float seekWeight = 1.0f;
-        const float separationWeight = 1.5f;
-        const float cohesionWeight = 0.0f;
+    /*constexpr float followDistance = 12.f;
+    constexpr float separationDistance = 50.f;
+    const float separationStrength = 1.5f;
+    const float seekWeight = 1.0f;
+    const float separationWeight = 1.5f;
+    const float cohesionWeight = 0.0f;
 
-        for (auto& chaser : chasers)
+    for (auto& chaser : chasers)
+    {
+        if (!chaser->tieneComponente<CE::IEntityType>())
+            continue;
+
+        if (chaser->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
+            continue;
+
+        auto& chaserTransform = *chaser->getTransformada();
+        auto& targetTransform = *target.getTransformada();
+        CE::Vector2D directionToTarget = targetTransform.posicion - chaserTransform.posicion;
+        float distanceToTarget = directionToTarget.magnitud();
+        const float speed = chaser->getStats()->maxSpeed;
+
+        CE::Vector2D seekVelocity{0.f, 0.f};
+        if (distanceToTarget < followDistance)
         {
-            if (!chaser->tieneComponente<CE::IEntityType>())
+            seekVelocity = directionToTarget.normalizacion().escala(speed);
+        }
+        else
+        {
+            seekVelocity = CE::Vector2D{0.f, 0.f}; // stop moving within follow distance
+        }
+
+        CE::Vector2D separationForce{0.f, 0.f};
+        for (const auto& otherChaser : chasers)
+        {
+            if (!otherChaser->tieneComponente<CE::IEntityType>())
                 continue;
 
-            if (chaser->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
+            if (otherChaser->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
                 continue;
 
-            auto& chaserTransform = *chaser->getTransformada();
-            auto& targetTransform = *target.getTransformada();
-            CE::Vector2D directionToTarget = targetTransform.posicion - chaserTransform.posicion;
-            float distanceToTarget = directionToTarget.magnitud();
-            const float speed = chaser->getStats()->maxSpeed;
-
-            CE::Vector2D seekVelocity{0.f, 0.f};
-            if (distanceToTarget < followDistance)
+            if (chaser != otherChaser)
             {
-                seekVelocity = directionToTarget.normalizacion().escala(speed);
+                auto& otherTransform = *otherChaser->getTransformada();
+                CE::Vector2D diff = chaserTransform.posicion - otherTransform.posicion;
+                float distance = diff.magnitud();
+                if (distance < separationDistance && distance > 0) // avoid division by zero
+                    separationForce += diff.normalizacion().escala((separationDistance - distance) / separationDistance);
             }
-            else
-            {
-                seekVelocity = CE::Vector2D{0.f, 0.f}; // stop moving within follow distance
-            }
+        }
 
-            CE::Vector2D separationForce{0.f, 0.f};
-            for (const auto& otherChaser : chasers)
-            {
-                if (!otherChaser->tieneComponente<CE::IEntityType>())
-                    continue;
-
-                if (otherChaser->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
-                    continue;
-
-                if (chaser != otherChaser)
-                {
-                    auto& otherTransform = *otherChaser->getTransformada();
-                    CE::Vector2D diff = chaserTransform.posicion - otherTransform.posicion;
-                    float distance = diff.magnitud();
-                    if (distance < separationDistance && distance > 0) // avoid division by zero
-                        separationForce += diff.normalizacion().escala((separationDistance - distance) / separationDistance);
-                }
-            }
-
-            separationForce = separationForce.escala(separationStrength);
-            CE::Vector2D cohesionForce{0.f, 0.f}; // not implemented yet
-            CE::Vector2D combinedForce = {seekVelocity.escala(seekWeight) + separationForce.escala(separationWeight) + cohesionForce.escala(cohesionWeight)};
-            CE::Vector2D finalVelocity = combinedForce.normalizacion().escala(speed);
-            chaserTransform.velocidad = lerp(chaserTransform.posicion, finalVelocity, 0.5f * dt);
-            // check if the enemy arrived to the player
-            // cast to Entidad to access getCollidedWithAnotherEntity method
-            auto& chaserCast = dynamic_cast<Entidad&>(*chaser);
-            if (chaserCast.getCollidedWithAnotherEntity())
-                chaserTransform.velocidad = {0.f, 0.f};
-        }*/
+        separationForce = separationForce.escala(separationStrength);
+        CE::Vector2D cohesionForce{0.f, 0.f}; // not implemented yet
+        CE::Vector2D combinedForce = {seekVelocity.escala(seekWeight) + separationForce.escala(separationWeight) + cohesionForce.escala(cohesionWeight)};
+        CE::Vector2D finalVelocity = combinedForce.normalizacion().escala(speed);
+        chaserTransform.velocidad = lerp(chaserTransform.posicion, finalVelocity, 0.5f * dt);
+        // check if the enemy arrived to the player
+        // cast to Entidad to access getCollidedWithAnotherEntity method
+        auto& chaserCast = dynamic_cast<Entidad&>(*chaser);
+        if (chaserCast.getCollidedWithAnotherEntity())
+            chaserTransform.velocidad = {0.f, 0.f};
+    }*/
 
     // System for choosing enemy type based on a rand number (0 <= NUM <= 3)
     std::string SystemChooseEnemyType(const int num)
@@ -273,47 +284,75 @@ namespace IVJ
 
         switch (num)
         {
-            case 0:
-                choice = "hojaErrante";
-                break;
+        case 0:
+            choice = "hojaErrante";
+            break;
 
-            case 1:
-                choice = "hojaBerserker";
-                break;
+        case 1:
+            choice = "hojaBerserker";
+            break;
 
-            case 2:
-                choice = "hojaChongus";
-                break;
+        case 2:
+            choice = "hojaChongus";
+            break;
 
-            default:
-                CE::printDebug("[SISTEMAS] Error: enemy type not recognized");
-                choice = "";
+        default:
+            CE::printDebug("[SISTEMAS] Error: enemy type not recognized");
+            choice = "";
             break;
         }
 
         return choice;
     }
 
-    // system to choose a random loot item, if isWeapon is true, it will choose between 4 weapons, otherwise between 3 for utils
-    int SystemChooseRandLootItem(const bool isWeapon)
+    // system to choose a random weapon loot item, returns the type based on the integer value generated
+    CE::WEAPON_TYPE SystemChooseRandWeapon()
     {
-        // seed random number generator
-        std::srand(static_cast<unsigned int>(std::time(nullptr)));
-        // check if it's a weapon or a util, to know the range of the random number
-        if (isWeapon)
+        const int randNum = rand() % 4;
+        switch (randNum)
         {
-            // random number between 0 and 3
-            return std::rand() % 4;
+        case 0:
+            return CE::WEAPON_TYPE::REVOLVER;
+
+        case 1:
+            return CE::WEAPON_TYPE::SHOTGUN;
+
+        case 2:
+            return CE::WEAPON_TYPE::SMG;
+
+        case 3:
+            return CE::WEAPON_TYPE::KNIFE;
+
+        default:
+            return CE::WEAPON_TYPE::NONE;
         }
-        // random number between 0 and 2
-        return std::rand() % 3;
     }
 
-    // system that will choose a random position from the array passed as parameter
-    CE::Vector2D getRandomPosition(std::array<CE::Vector2D, 20> positionsArr)
+    CE::UTILITY_TYPE SystemChooseRandUtility()
     {
-        std::srand (static_cast<unsigned int>(std::time(nullptr)));
+        const int randNum = rand() % 3;
+        switch (randNum)
+        {
+        case 0:
+            return CE::UTILITY_TYPE::BANDAGE;
+
+        case 1:
+            return CE::UTILITY_TYPE::MEDKIT;
+
+        case 2:
+            return CE::UTILITY_TYPE::ENERGY_DRINK;
+
+        default:
+            return CE::UTILITY_TYPE::NONE;
+        }
+    }
+
+
+    // system that will choose a random position from the array passed as parameter
+    CE::Vector2D SystemGetRandomPosition(std::array<CE::Vector2D, 20> positionsArr)
+    {
         const int randIndex = std::rand() % positionsArr.size();
+        //std::cout << "Random index chosen: " << randIndex << std::endl;
         return positionsArr[randIndex];
     }
 
@@ -324,29 +363,29 @@ namespace IVJ
         const auto stats = entity->getStats();
         switch (type)
         {
-            case 0: // errante
-                stats->hp = 10;
-                stats->hp_max = 10;
-                stats->damage = 1;
-                stats->maxSpeed = baseSpeed;
+        case 0: // errante
+            stats->hp = 10;
+            stats->hp_max = 10;
+            stats->damage = 1;
+            stats->maxSpeed = baseSpeed;
             break;
 
-            case 1: // berserker
-                stats->hp = 20;
-                stats->hp_max = 20;
-                stats->damage = 3;
-                stats->maxSpeed = baseSpeed * 2.f;
+        case 1: // berserker
+            stats->hp = 20;
+            stats->hp_max = 20;
+            stats->damage = 3;
+            stats->maxSpeed = baseSpeed * 2.f;
             break;
 
-            case 2: // chongus
-                stats->hp = 50;
-                stats->hp_max = 50;
-                stats->damage = 5;
-                stats->maxSpeed = baseSpeed * 0.75;;
+        case 2: // chongus
+            stats->hp = 50;
+            stats->hp_max = 50;
+            stats->damage = 5;
+            stats->maxSpeed = baseSpeed * 0.75;;
             break;
 
-            default:
-                CE::printDebug("[SISTEMAS] Error: enemy type not recognized");
+        default:
+            CE::printDebug("[SISTEMAS] Error: enemy type not recognized");
             break;
         }
     }
@@ -392,6 +431,7 @@ namespace IVJ
         }
     }
 
+    // system to update player weapon stats based on weapon type passed as parameter
     void SystemUpdatePlayerWeaponStats(const CE::WEAPON_TYPE weaponType, const std::shared_ptr<Entidad>& player)
     {
         auto stats = player->getStats();
@@ -403,57 +443,218 @@ namespace IVJ
 
         switch (weaponType)
         {
-            case CE::WEAPON_TYPE::KNIFE:
-                stats->damage = 5;
-                // -1 value for any of the ammo values since it does not have
-                weapon->currentMagBullets = -1;
-                weapon->magSize = -1;
-                weapon->maxWeaponBullets = -1;
-                weapon->reloadTime = -1;
-                weapon->fireRate = 0.1f;
+        case CE::WEAPON_TYPE::NONE:
+            CE::printDebug("[SISTEMAS] Warning: player has no weapon equipped");
             break;
 
-            case CE::WEAPON_TYPE::REVOLVER:
-                stats->damage = 2;
-                weapon->currentMagBullets = 6;
-                weapon->magSize = 6;
-                weapon->maxWeaponBullets = 36; // 6 mags
-                weapon->reloadTime = 0.5f;
-                weapon->fireRate = 0.8f; // 0.8 seconds between shots
+        case CE::WEAPON_TYPE::KNIFE:
+            stats->damage = 5;
+            // -1 value for any of the ammo values since it does not have
+            weapon->currentMagBullets = -1;
+            weapon->magSize = -1;
+            weapon->maxWeaponBullets = -1;
+            weapon->reloadTime = -1;
+            weapon->fireRate = 0.1f;
             break;
 
-            case CE::WEAPON_TYPE::SHOTGUN:
-                stats->damage = 10;
-                weapon->currentMagBullets = 5;
-                weapon->magSize = 5;
-                weapon->maxWeaponBullets = 25; // 5 mags
-                weapon->reloadTime = 1.0f;
-                weapon->fireRate = 1.2f; // 1.2 seconds between
+        case CE::WEAPON_TYPE::REVOLVER:
+            stats->damage = 2;
+            weapon->currentMagBullets = 6;
+            weapon->magSize = 6;
+            weapon->maxWeaponBullets = 36; // 6 mags
+            weapon->reloadTime = 0.5f;
+            weapon->fireRate = 0.8f; // 0.8 seconds between shots
             break;
 
-            case CE::WEAPON_TYPE::SMG:
-                stats->damage = 3;
-                weapon->currentMagBullets = 25;
-                weapon->magSize = 25;
-                weapon->maxWeaponBullets = 100; // 4 mags
-                weapon->reloadTime = 1.5f;
-                weapon->fireRate = 0.0833f ; // 12 bullets per second
+        case CE::WEAPON_TYPE::SHOTGUN:
+            stats->damage = 10;
+            weapon->currentMagBullets = 5;
+            weapon->magSize = 5;
+            weapon->maxWeaponBullets = 25; // 5 mags
+            weapon->reloadTime = 1.0f;
+            weapon->fireRate = 1.2f; // 1.2 seconds between
             break;
 
-            case CE::WEAPON_TYPE::RIFLE:
-                stats->damage = 5;
-                weapon->currentMagBullets = 30;
-                weapon->magSize = 30;
-                weapon->maxWeaponBullets = 90; // 3 mags
-                weapon->reloadTime = 2.0f;
-                weapon->fireRate = 0.1f; // 10 bullets per second
+        case CE::WEAPON_TYPE::SMG:
+            stats->damage = 3;
+            weapon->currentMagBullets = 25;
+            weapon->magSize = 25;
+            weapon->maxWeaponBullets = 100; // 4 mags
+            weapon->reloadTime = 1.5f;
+            weapon->fireRate = 0.0833f ; // 12 bullets per second
             break;
 
-            default:
-                CE::printDebug("[SISTEMAS] Error: weapon type not recognized");
+        case CE::WEAPON_TYPE::RIFLE:
+            stats->damage = 5;
+            weapon->currentMagBullets = 30;
+            weapon->magSize = 30;
+            weapon->maxWeaponBullets = 90; // 3 mags
+            weapon->reloadTime = 2.0f;
+            weapon->fireRate = 0.1f; // 10 bullets per second
+            break;
+
+        default:
+            CE::printDebug("[SISTEMAS] Error: weapon type not recognized");
             break;
         }
     }
 
+    // Update all loot items in the scene
+    void SystemUpdateLootItems(std::vector<std::shared_ptr<Entidad>>& lootItems, std::shared_ptr<Entidad>& player,
+        CE::WEAPON_TYPE& tempRefWpn, CE::UTILITY_TYPE& tempRefUtil, std::array<CE::Vector2D, 20> positionsArr,
+        bool& shouldChangeWeaponFlag, bool& shouldChangeUtilFlag, float dt)
+    {
+        for (auto& item : lootItems)
+        {
+            // assume the item in the vector has IEntityType
+            // check first for the weapon loot items
+            if (item->getComponente<CE::IEntityType>()->type == CE::ENTITY_TYPE::LOOT_WEAPON)
+            {
+                if (SistemaColAABBMid(*player, *item, true))
+                {
+                    // choose a new random weapon sprite and update the temp reference for the scene
+                    const auto randWeaopn = SystemChooseRandWeapon();
+                    tempRefWpn = randWeaopn;
+                    // update the weapon loot position and timer (reset) for the one just picked
+                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    item->setPosicion(newPos.x, newPos.y);
+                    item->getComponente<CE::ITimer>()->frame_actual = 0;
+                    shouldChangeWeaponFlag = true;
+                }
 
+                // check if the timer needs reset,  for the weapon loot item if player hasn't collided (picked it up)
+                else if (item->hasTimerReachedMax(item->getComponente<CE::ITimer>()))
+                {
+                    const auto randWeapon = SystemChooseRandWeapon();
+                    tempRefWpn = randWeapon;
+                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    item->setPosicion(newPos.x, newPos.y);
+                    item->getComponente<CE::ITimer>()->frame_actual = 0;
+                    //shouldChangeWeaponFlag = true;
+                }
+                continue;
+            }
+            // now check for utility loot items
+            if (item->getComponente<CE::IEntityType>()->type == CE::ENTITY_TYPE::LOOT_UTILITY)
+            {
+                if (SistemaColAABBMid(*player, *item, true))
+                {
+                    // choose a new random utility sprite and update the temp reference for the scene
+                    const auto randUtility = SystemChooseRandUtility();
+                    tempRefUtil = randUtility;
+                    // update the utility loot position and timer (reset) for the one just picked
+                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    item->setPosicion(newPos.x, newPos.y);
+                    item->getComponente<CE::ITimer>()->frame_actual = 0;
+                    shouldChangeUtilFlag = true;
+                }
+                // check if the timer needs reset,  for the utility loot item if player hasn't collided
+                else if (item->hasTimerReachedMax(item->getComponente<CE::ITimer>()))
+                {
+                    const auto randUtility = SystemChooseRandUtility();
+                    tempRefUtil = randUtility;
+                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    item->setPosicion(newPos.x, newPos.y);
+                    item->getComponente<CE::ITimer>()->frame_actual = 0;
+                    //shouldChangeUtilFlag = true;
+                }
+                continue;
+            }
+        }
+        // call to the movement system for the loot items so the positions are updated
+        SistemaMoverEntidad(lootItems, dt);
+        SystemUpdateEnergyDrink(player->isVelocityBoostActive, player, dt); // always true since the energy drink effect is handled inside the method
+    }
+
+    // system to handle the energy drink effect on the player
+    void SystemUpdateEnergyDrink(bool& isEnergyDrinkActive, std::shared_ptr<Entidad>& player, float dt)
+    {
+        if (!isEnergyDrinkActive)
+        // do nothing if the energy drink effect is not active
+            return;
+
+        auto ed_timer = player->velocityBoostTimer; // get timer for the energy drink effect
+        ed_timer->frame_actual += dt;
+        // check if the effect timer has reached max
+        if (player->hasTimerReachedMax(ed_timer.get()))
+        {
+            // reset player speed to normal
+            player->getStats()->maxSpeed /= 1.5f; // assuming the boost was 1.5x
+            isEnergyDrinkActive = false;
+            ed_timer->frame_actual = 0.f; // reset timer
+        }
+    }
+    // System to update the UI sprite for the loot items and change the player items when picked from loot
+    void SystemChangePlayerItems(bool& shouldChangeWeaponFlag, bool& shouldChangeUtilFlag,
+        std::shared_ptr<Entidad>& player, CE::WEAPON_TYPE& tempRefWpn, CE::UTILITY_TYPE& tempRefUtil, InfoUI& sceneOverlayElements)
+    {
+        if (shouldChangeWeaponFlag)
+        {
+            // update the player's component weapon type based on the new weapon type picked
+            player->getComponente<CE::IWeapon>()->type = tempRefWpn;
+            tempRefWpn = CE::WEAPON_TYPE::NONE;
+            shouldChangeUtilFlag = false;
+            // update overlay type for weapon
+            sceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
+            // call to the system to adjust the IStats component of the player
+            SystemUpdatePlayerWeaponStats(player->getComponente<CE::IWeapon>()->type, player);
+        }
+
+        if (shouldChangeUtilFlag)
+        {
+            player->getComponente<CE::IUtility>()->type = tempRefUtil;
+            tempRefUtil = CE::UTILITY_TYPE::NONE;
+            shouldChangeUtilFlag = false;
+            // update overlay type for utility
+            sceneOverlayElements.setUtility(player->getComponente<CE::IUtility>()->type);
+        }
+    }
+
+    // System to create the loot items in the scene at the start of the main scene, called only once
+    // receives the maxFrames parameter as the maximum time before the loot item needs to change it's position
+    // and the maximum of loot items to create
+    void SystemCreateLootItems(std::vector<std::shared_ptr<Entidad>>& lootItems, const std::array<CE::Vector2D, 20>& positionsArr, int maxFrames, const int maxLootItems)
+    {
+        // it is choosen that half of the loot items will be weapons and the other half utilities
+        for (int i = 0 ; i < maxLootItems ; i++)
+        {
+            if (i % 2 == 0) // even index, create weapon loot
+            {
+                auto lootWeapon = std::make_shared<Entidad>();
+                // set random position
+                auto newPos = SystemGetRandomPosition(positionsArr);
+                lootWeapon->setPosicion(newPos.x, newPos.y);
+                lootWeapon->getStats()->hp = 1;
+
+                lootWeapon->addComponente(std::make_shared<CE::ISprite>(
+                    CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
+                    16, 16, 1.5f));
+                lootWeapon->addComponente(std::make_shared<CE::IBoundingBox>(
+                CE::Vector2D{16.f * 1.2f, 16.f * 1.2f}));
+                lootWeapon->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::LOOT_WEAPON));
+                lootWeapon->addComponente(std::make_shared<CE::ITimer>(maxFrames));
+                // add to the loot items vector
+                lootItems.push_back(lootWeapon);
+            }
+            else // odd index, create utility loot
+            {
+                auto lootUtility = std::make_shared<Entidad>();
+                // set random position
+                auto newPos = SystemGetRandomPosition(positionsArr);
+                lootUtility->setPosicion(newPos.x, newPos.y);
+                lootUtility->getStats()->hp = 1;
+
+                lootUtility->addComponente(std::make_shared<CE::ISprite>(
+                    CE::GestorAssets::Get().getTextura("utilityLootBoxSprite"),
+                    16, 16, 1.5f));
+                lootUtility->addComponente(std::make_shared<CE::IBoundingBox>(
+                    CE::Vector2D{16.f * 1.2f, 16.f * 1.2f}));
+                lootUtility->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::LOOT_UTILITY));
+                lootUtility->addComponente(std::make_shared<CE::ITimer>(maxFrames));
+                // add to the loot items vector
+                lootItems.push_back(lootUtility);
+            }
+        }
+    }
 }
+

@@ -38,7 +38,8 @@ namespace CE
         PLAYER = 0xAAA,
         ENEMY,
         NPC,
-        LOOT,
+        LOOT_WEAPON,
+        LOOT_UTILITY,
         PROJECTILE,
         STATIC,
         DYNAMIC
@@ -230,7 +231,7 @@ namespace CE
             explicit IWeapon(WEAPON_TYPE t) : type{t} {}
             ~IWeapon() override = default;
 
-            WEAPON_TYPE type;// {WEAPON_TYPE::NONE};
+            WEAPON_TYPE type; // current weapon type
             int currentMagBullets; // bullets in the magazine at runtime
             int maxWeaponBullets; // max bullets the weapon can hold
             int magSize; // size of each magazine
@@ -245,17 +246,9 @@ namespace CE
             explicit IUtility(UTILITY_TYPE t) : type{t} {}
             ~IUtility() override = default;
 
-            UTILITY_TYPE type;// {UTILITY_TYPE::NONE};
+            UTILITY_TYPE type;// current utility item type
             int quantity; // quantity of the utility item (e.g., number of bandages), so it can be stacked when picking up the same item
     };
-    /*class IItems : public IComponentes
-    {
-        public:
-            explicit IItems();
-            ~IItems() override = default;
-
-
-    };*/
 }
 
 

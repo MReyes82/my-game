@@ -48,8 +48,8 @@ namespace  IVJ
         // methods for refreshing dynamic elements
         void drawCurrentHealth(CE::Render& sceneWindow) const;
         void updateCrosshairPosition(CE::Render& window);
-        //void setWeaponSprite(WeaponType weapon);
-        //void setUtilitySprite(UtilityType utility);
+        void setWeaponSprite(CE::WEAPON_TYPE weapon);
+        void setUtilitySprite(CE::UTILITY_TYPE utility);
 
 
         std::shared_ptr<Entidad> objectLock;
@@ -67,5 +67,7 @@ namespace  IVJ
         CE::ISprite utilitySprite;
         CE::ISprite weaponCageSprite;
         CE::ISprite utilityCageSprite;
+
+        bool _new = true;
     };
 }

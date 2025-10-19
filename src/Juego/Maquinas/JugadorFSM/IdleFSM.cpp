@@ -15,11 +15,11 @@ namespace IVJ
     {
         if(control.arr)
             return new MoverFSM(false);
-        else if(control.abj)
+        if(control.abj)
             return new MoverFSM(true);
-        else if(control.der)
+        if(control.der)
             return new MoverFSM(false);
-        else if(control.izq)
+        if(control.izq)
             return new MoverFSM(true);
 
         return nullptr;

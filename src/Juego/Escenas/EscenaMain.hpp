@@ -38,6 +38,13 @@ namespace IVJ
         bool gameState {false}; // false = playing, true = paused
         std::shared_ptr<Entidad> player; // player entity
         //std::vector<std::shared_ptr<Entidad>> enemies; // vector of enemy entities
+
+        // weapon an utilities functions
+        CE::WEAPON_TYPE newWeaponType {CE::WEAPON_TYPE::NONE};
+        CE::UTILITY_TYPE newUtilityType {CE::UTILITY_TYPE::NONE};
+        std::vector<std::shared_ptr<Entidad>> lootItems; // vector of loot items in the scene
+        std::vector<std::shared_ptr<Entidad>> bulletsShot; // vector of projectiles in the scene (soon to be implemented)
+
         signed int currentRound {0};
         int MAX_ROUND_ENEMIES = 9;
         int currentEnemiesInScene = 0;
@@ -57,11 +64,14 @@ namespace IVJ
             CE::Vector2D{380.f, 820.f}
         };
 
-        std::array<CE::Vector2D, 10> lootPositions = {
-            CE::Vector2D{300.f, 300.f}, CE::Vector2D{600.f, 600.f}, CE::Vector2D{900.f, 900.f},
-            CE::Vector2D{1200.f, 1200.f}, CE::Vector2D{500.f, 500.f}, CE::Vector2D{800.f, 800.f},
-            CE::Vector2D{100.f, 100.f}, CE::Vector2D{400.f, 400.f}, CE::Vector2D{700.f, 700.f},
-            CE::Vector2D{800.f, 300.f}
+        std::array<CE::Vector2D, 20> lootPositions = {
+            CE::Vector2D{2879.f, 2896.f}, CE::Vector2D{951.f, 993.f}, CE::Vector2D{901.f, 1995.f},
+            CE::Vector2D{3339.f, 1920.f}, CE::Vector2D{1920.f, 3264.f}, CE::Vector2D{559.f, 1928.f},
+            CE::Vector2D{425.f, 985.f}, CE::Vector2D{1869.f, 242.f}, CE::Vector2D{2896.f, 484.f},
+            CE::Vector2D{3397.f, 1001.f}, CE::Vector2D{2779.f, 976.f}, CE::Vector2D{1853.f, 726.f},
+            CE::Vector2D{1452.f, 976.f}, CE::Vector2D{1544.f, 1861.f}, CE::Vector2D{934.f, 3347.f},
+            CE::Vector2D{1460.f, 3589.f}, CE::Vector2D{959.f, 2888.f}, CE::Vector2D{1435.f, 1936.f},
+            CE::Vector2D{2445.f, 3238.f}, CE::Vector2D{2000.f, 2000.f}
         };
     };
 

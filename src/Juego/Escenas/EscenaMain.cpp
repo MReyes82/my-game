@@ -31,6 +31,7 @@ namespace IVJ
         player->getStats()->score = 0;
         player->getStats()->damage = 1; // knife damage
         player->getStats()->maxSpeed = 165.f;
+        player->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
 
         //! NOTE: YOU HAVE TO ADD THE COMPONENTS IN THIS ORDER, OR ELSE THE COLLISION WON'T WORK PROPERLY
         player->addComponente(std::make_shared<CE::ISprite>(
@@ -46,6 +47,9 @@ namespace IVJ
         fsm_init->onEntrar(*player);
 
         player->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PLAYER));
+        player->addComponente(std::make_shared<CE::ITimer>(180));
+        player->addComponente(std::make_shared<CE::IWeapon>(CE::WEAPON_TYPE::KNIFE));
+        player->addComponente(std::make_shared<CE::IUtility>(CE::UTILITY_TYPE::NONE));
 
         objetos.agregarPool(player);
     }
@@ -117,7 +121,7 @@ namespace IVJ
     }
 
     // function to move the reference of the player object to the last position of the
-    // Pool, this is the only way to fix the collision resolving issue
+    // Pool, this is the only way to fix the collision-resolving issue
     void EscenaMain::movePlayerPointer()
     {
         if (objetos.getPool().empty())
@@ -147,7 +151,7 @@ namespace IVJ
         CE::GestorAssets::Get().agregarTextura("heartSprite", ASSETS "/sprites/items/assets UI/UI/HUD_health01.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{8, 8});
         CE::GestorAssets::Get().agregarTextura("weaponIconsSprite", ASSETS "/sprites/items/weapons/weapon_icons.png",
-                                                CE::Vector2D{0, 0}, CE::Vector2D{17.f, 44.f});
+                                                CE::Vector2D{0, 0}, CE::Vector2D{10.f, 11.f});
         CE::GestorAssets::Get().agregarTextura("ammoIconSprite", ASSETS "/sprites/items/assets UI/UI/HUD_ammo01.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{8.f, 8.f});
         CE::GestorAssets::Get().agregarTextura("utilityIconSprite", ASSETS "/sprites/items//utility_icons.png",
@@ -156,6 +160,11 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
         CE::GestorAssets::Get().agregarTextura("utilityCageSprite", ASSETS "/sprites/items/assets UI/UI/empty_box.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
+        CE::GestorAssets::Get().agregarTextura("weaponLootBoxSprite", ASSETS "/sprites/items/PowerUps2.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+        CE::GestorAssets::Get().agregarTextura("utilityLootBoxSprite", ASSETS "/sprites/items/PowerUps1.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
         CE::GestorAssets::Get().agregarFont("NotJamSlab14",ASSETS "/fonts/NotJamSlab14.ttf");
@@ -166,10 +175,13 @@ namespace IVJ
     {
         UIsceneOverlayElements.setHealth(player->getStats()->hp);
         UIsceneOverlayElements.setScore(player->getStats()->score);
-        UIsceneOverlayElements.setCurrentAmmo(10); //IWeapon->currentMagBullets
-        UIsceneOverlayElements.setMaxAmmo(30); // IWeapon->maxWeaponBullets
-        // setNewWeapon()
-        // changePlayerItems()
+        UIsceneOverlayElements.setCurrentAmmo(player->getComponente<CE::IWeapon>()->currentMagBullets);
+        UIsceneOverlayElements.setMaxAmmo(player->getComponente<CE::IWeapon>()->maxWeaponBullets);
+        SystemChangePlayerItems(player->shouldChangeWeapon, player->shouldChangeUtility,
+                                player,
+                                newWeaponType,
+                                newUtilityType,
+                                UIsceneOverlayElements);
     }
 
     void EscenaMain::onInit()
@@ -194,6 +206,12 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
         CE::GestorAssets::Get().agregarTextura("hojaChongus", ASSETS "/sprites/enemies/chongus_sprite.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
+        SystemCreateLootItems(lootItems, lootPositions, 60 * SECONDS_, 10); // create 10 loot items with 10 seconds timer
+        std::cout << "Loot items created: " << lootItems.size() << "\n";
+        for (auto& item : lootItems)
+        {
+            objetos.agregarPool(item);
+        }
         initPlayerPointer();
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
@@ -222,14 +240,17 @@ namespace IVJ
 
         // check if round has ended, if so, summon new enemies
         checkRoundEnd();
+        SystemUpdateLootItems(lootItems, player,
+            newWeaponType, newUtilityType,
+            lootPositions,
+            player->shouldChangeWeapon, player->shouldChangeUtility,
+            dt);
         // update overlay elements
         updatePlayerUI();
         sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
-
-        player->inputFSM();
         // it looks verbose but it's necessary to update the player facing direction
-        player->setIsEntityFacingRight(
-            player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
+        player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
+        player->inputFSM();
 
         //SystemFollowPlayer()
         for (auto& currentObject : objetos.getPool())
@@ -375,7 +396,7 @@ namespace IVJ
 
     void EscenaMain::onRender()
     {
-        CE::Render::Get().GetVentana().setMouseCursorVisible(true);
+        CE::Render::Get().GetVentana().setMouseCursorVisible(false);
         for (auto& b : background)
             CE::Render::Get().AddToDraw(b);
 
@@ -386,7 +407,7 @@ namespace IVJ
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 
-        if (true) // newRoundTextTimer <= 2 * SECONDS_ && shouldShowNewRoundText
+        if (false) // newRoundTextTimer <= 2 * SECONDS_ && shouldShowNewRoundText
         {
             //CE::printDebug("DRAW ROUND TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getRoundText());
@@ -397,7 +418,7 @@ namespace IVJ
             // shouldShowNewRoundText = false;
             // newRoundTextTimer = 0;
         }
-        if (true) // isReloaing
+        if (false) // isReloaing
         {
             //CE::printDebug("DRAW RELOADING TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getReloadingText());
