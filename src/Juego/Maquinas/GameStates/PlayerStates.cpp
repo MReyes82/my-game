@@ -51,9 +51,11 @@ namespace IVJ
         sprite_width = c_sprite->width;
         sprite_height = c_sprite->height;
 
-        // TODO: implement weapon component, for now, we will add the offset variable
-        // if (obj.tieneComponente<IVJ::IArma>())
         float currentWeapon = 0.f;
+        if (obj.tieneComponente<CE::IWeapon>())
+        {
+            currentWeapon = static_cast<float>(obj.getComponente<CE::IWeapon>()->type);
+        }
 
         // extract frames from sprite sheet
         animation_frames[0] = {frame1pos, currentWeapon};
@@ -151,7 +153,10 @@ namespace IVJ
 
         constexpr float currentRow = 64.f; // row for walking animation
         float currentWeapon = 0.f;
-        // if (obj.tieneComponente<IVJ::IArma>())
+        if (obj.tieneComponente<CE::IWeapon>())
+        {
+            currentWeapon = static_cast<float>(obj.getComponente<CE::IWeapon>()->type);
+        }
 
         animation_frames[0] = {frame1pos, currentRow + currentWeapon};
         animation_frames[1] = {frame2pos, currentRow + currentWeapon};
@@ -247,7 +252,10 @@ namespace IVJ
 
         constexpr float currentRow = 32.f; // row for attacking animation
         float currentWeapon = 0.f;
-        // if (obj.tieneComponente<IVJ::IArma>())
+        if (obj.tieneComponente<CE::IWeapon>())
+        {
+            currentWeapon = static_cast<float>(obj.getComponente<CE::IWeapon>()->type);
+        }
 
         animation_frames[0] = {frame1pos, currentRow + currentWeapon};
         animation_frames[1] = {frame2pos, currentRow + currentWeapon};
@@ -342,7 +350,11 @@ namespace IVJ
 
         constexpr float currentRow = 96.f; // row for attacking while moving animation
         float currentWeapon = 0.f;
-        // if (obj.tieneComponente<IVJ::IArma>())
+        if (obj.tieneComponente<CE::IWeapon>())
+        {
+            currentWeapon = static_cast<float>(obj.getComponente<CE::IWeapon>()->type);
+        }
+
         animation_frames[0] = {frame1pos, currentRow + currentWeapon};
         animation_frames[1] = {frame2pos, currentRow + currentWeapon};
         animation_frames[2] = {frame3pos, currentRow + currentWeapon};

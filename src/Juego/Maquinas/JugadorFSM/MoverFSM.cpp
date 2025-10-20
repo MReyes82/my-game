@@ -21,6 +21,7 @@ namespace IVJ
             flip=false;
         else if(control.izq)
             flip=true;
+
         return nullptr;
     }
     void MoverFSM::onEntrar(const Entidad& obj)

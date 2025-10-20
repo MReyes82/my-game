@@ -5,6 +5,7 @@
 #include "../../Motor/Primitivos/Objetos.hpp"
 #include "../../Motor/Primitivos/CEPool.hpp"
 #include "Juego/Escenas/Overlay/InfoUI.hpp"
+#include <set>
 
 namespace IVJ
 {
@@ -27,7 +28,7 @@ namespace IVJ
     [[maybe_unused]] CE::WEAPON_TYPE SystemChooseRandWeapon();
     [[maybe_unused]] CE::UTILITY_TYPE SystemChooseRandUtility(); // separated so they can return an enum value directly
     [[maybe_unused]] void SystemAdjustEntityStats(std::shared_ptr<CE::Objeto> entity, int type);
-    [[maybe_unused]] CE::Vector2D SystemGetRandomPosition(std::array<CE::Vector2D, 20> positionsArr);
+    [[maybe_unused]] int SystemGetRandomPosition(std::array<CE::Vector2D, 20> positionsArr, std::set<int>& usedIndices);
     [[maybe_unused]] void SystemUpdatePlayerWeaponStats(CE::WEAPON_TYPE weaponType, const std::shared_ptr<Entidad>& player);
     [[maybe_unused]] void SystemUpdateLootItems(std::vector<std::shared_ptr<Entidad>>& lootItems,
         std::shared_ptr<Entidad>& player, CE::WEAPON_TYPE& tempRefWpn, CE::UTILITY_TYPE& tempRefUtil,

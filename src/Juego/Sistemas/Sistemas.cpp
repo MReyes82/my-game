@@ -1,6 +1,7 @@
 #include "Sistemas.hpp"
 
 #include <Motor/GUI/GPropiedades.hpp>
+#include <set>
 
 #include "Juego/Figuras/Figuras.hpp"
 #include "Juego/objetos/Entidad.hpp"
@@ -349,11 +350,33 @@ namespace IVJ
 
 
     // system that will choose a random position from the array passed as parameter
-    CE::Vector2D SystemGetRandomPosition(std::array<CE::Vector2D, 20> positionsArr)
+    // and ensures that the position hasn't been used before by checking the usedIndices set
+    int SystemGetRandomPosition(std::array<CE::Vector2D, 20> positionsArr, std::set<int>& usedIndices)
     {
-        const int randIndex = std::rand() % positionsArr.size();
-        //std::cout << "Random index chosen: " << randIndex << std::endl;
-        return positionsArr[randIndex];
+
+        // if all positions are used, clear the set to start over
+        if (usedIndices.size() >= positionsArr.size())
+        {
+            CE::printDebug("[SYSTEM] All positions used, clearing used indices set");
+            usedIndices.clear();
+        }
+
+        int randIndex;
+        int attempts = 0;
+        // keep generating random indices until we find one that hasn't been used
+        do
+        {
+            randIndex = std::rand() % positionsArr.size();
+            attempts++;
+            if (attempts > 100)
+            {
+                break;
+            }
+        } while (usedIndices.find(randIndex) != usedIndices.end());
+
+        // mark this index as used
+        usedIndices.insert(randIndex);
+        return randIndex;
     }
 
     // system to adjust entity stats based on enemy type
@@ -381,7 +404,7 @@ namespace IVJ
             stats->hp = 50;
             stats->hp_max = 50;
             stats->damage = 5;
-            stats->maxSpeed = baseSpeed * 0.75;;
+            stats->maxSpeed = baseSpeed * 0.75f;;
             break;
 
         default:
@@ -436,10 +459,6 @@ namespace IVJ
     {
         auto stats = player->getStats();
         auto weapon = player->getComponente<CE::IWeapon>();
-        if (!weapon)
-            return;
-
-        weapon->type = weaponType;
 
         switch (weaponType)
         {
@@ -504,6 +523,9 @@ namespace IVJ
         CE::WEAPON_TYPE& tempRefWpn, CE::UTILITY_TYPE& tempRefUtil, std::array<CE::Vector2D, 20> positionsArr,
         bool& shouldChangeWeaponFlag, bool& shouldChangeUtilFlag, float dt)
     {
+        // Track used position indices to ensure no duplicates
+        static std::set<int> usedPositionIndices;
+
         for (auto& item : lootItems)
         {
             // assume the item in the vector has IEntityType
@@ -516,7 +538,8 @@ namespace IVJ
                     const auto randWeaopn = SystemChooseRandWeapon();
                     tempRefWpn = randWeaopn;
                     // update the weapon loot position and timer (reset) for the one just picked
-                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    int newPosIndex = SystemGetRandomPosition(positionsArr, usedPositionIndices);
+                    CE::Vector2D newPos = positionsArr[newPosIndex];
                     item->setPosicion(newPos.x, newPos.y);
                     item->getComponente<CE::ITimer>()->frame_actual = 0;
                     shouldChangeWeaponFlag = true;
@@ -527,7 +550,8 @@ namespace IVJ
                 {
                     const auto randWeapon = SystemChooseRandWeapon();
                     tempRefWpn = randWeapon;
-                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    int newPosIndex = SystemGetRandomPosition(positionsArr, usedPositionIndices);
+                    CE::Vector2D newPos = positionsArr[newPosIndex];
                     item->setPosicion(newPos.x, newPos.y);
                     item->getComponente<CE::ITimer>()->frame_actual = 0;
                     //shouldChangeWeaponFlag = true;
@@ -543,7 +567,8 @@ namespace IVJ
                     const auto randUtility = SystemChooseRandUtility();
                     tempRefUtil = randUtility;
                     // update the utility loot position and timer (reset) for the one just picked
-                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    int newPosIndex = SystemGetRandomPosition(positionsArr, usedPositionIndices);
+                    CE::Vector2D newPos = positionsArr[newPosIndex];
                     item->setPosicion(newPos.x, newPos.y);
                     item->getComponente<CE::ITimer>()->frame_actual = 0;
                     shouldChangeUtilFlag = true;
@@ -553,7 +578,8 @@ namespace IVJ
                 {
                     const auto randUtility = SystemChooseRandUtility();
                     tempRefUtil = randUtility;
-                    auto newPos = SystemGetRandomPosition(positionsArr);
+                    int newPosIndex = SystemGetRandomPosition(positionsArr, usedPositionIndices);
+                    CE::Vector2D newPos = positionsArr[newPosIndex];
                     item->setPosicion(newPos.x, newPos.y);
                     item->getComponente<CE::ITimer>()->frame_actual = 0;
                     //shouldChangeUtilFlag = true;
@@ -592,21 +618,20 @@ namespace IVJ
         {
             // update the player's component weapon type based on the new weapon type picked
             player->getComponente<CE::IWeapon>()->type = tempRefWpn;
-            tempRefWpn = CE::WEAPON_TYPE::NONE;
-            shouldChangeUtilFlag = false;
-            // update overlay type for weapon
             sceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
             // call to the system to adjust the IStats component of the player
             SystemUpdatePlayerWeaponStats(player->getComponente<CE::IWeapon>()->type, player);
+            tempRefWpn = CE::WEAPON_TYPE::NONE;
+            shouldChangeWeaponFlag = false;
         }
 
         if (shouldChangeUtilFlag)
         {
             player->getComponente<CE::IUtility>()->type = tempRefUtil;
-            tempRefUtil = CE::UTILITY_TYPE::NONE;
-            shouldChangeUtilFlag = false;
             // update overlay type for utility
             sceneOverlayElements.setUtility(player->getComponente<CE::IUtility>()->type);
+            tempRefUtil = CE::UTILITY_TYPE::NONE;
+            shouldChangeUtilFlag = false;
         }
     }
 
@@ -615,14 +640,18 @@ namespace IVJ
     // and the maximum of loot items to create
     void SystemCreateLootItems(std::vector<std::shared_ptr<Entidad>>& lootItems, const std::array<CE::Vector2D, 20>& positionsArr, int maxFrames, const int maxLootItems)
     {
+        // Track used position indices to ensure no duplicates during initial creation
+        std::set<int> usedPositionIndices;
+
         // it is choosen that half of the loot items will be weapons and the other half utilities
         for (int i = 0 ; i < maxLootItems ; i++)
         {
             if (i % 2 == 0) // even index, create weapon loot
             {
                 auto lootWeapon = std::make_shared<Entidad>();
-                // set random position
-                auto newPos = SystemGetRandomPosition(positionsArr);
+                // set random position ensuring no duplicates
+                int newPosIndex = SystemGetRandomPosition(positionsArr, usedPositionIndices);
+                CE::Vector2D newPos = positionsArr[newPosIndex];
                 lootWeapon->setPosicion(newPos.x, newPos.y);
                 lootWeapon->getStats()->hp = 1;
 
@@ -639,8 +668,9 @@ namespace IVJ
             else // odd index, create utility loot
             {
                 auto lootUtility = std::make_shared<Entidad>();
-                // set random position
-                auto newPos = SystemGetRandomPosition(positionsArr);
+                // set random position ensuring no duplicates
+                int newPosIndex = SystemGetRandomPosition(positionsArr, usedPositionIndices);
+                CE::Vector2D newPos = positionsArr[newPosIndex];
                 lootUtility->setPosicion(newPos.x, newPos.y);
                 lootUtility->getStats()->hp = 1;
 

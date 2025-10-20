@@ -179,14 +179,15 @@ namespace  IVJ
         render.AddToDraw(crosshair.m_sprite);
         render.AddToDraw(weaponCageSprite.m_sprite);
         render.AddToDraw(weaponSprite.m_sprite);
-        render.AddToDraw(utilitySprite.m_sprite);
+        render.AddToDraw(utilityCageSprite.m_sprite);
         /*
          ** Do not draw the utility if it's set to NONE
          * By default this sprite is set to the bandage one just because it needs
          * to be initialized with something
          */
         if (displayElements.getUtility() != CE::UTILITY_TYPE::NONE)
-            render.AddToDraw(utilityCageSprite.m_sprite);
+            render.AddToDraw(utilitySprite.m_sprite);
+
         if (displayElements.getWeapon() != CE::WEAPON_TYPE::KNIFE)
             render.AddToDraw(ammoSprite.m_sprite);
 
@@ -259,6 +260,7 @@ namespace  IVJ
 
         case CE::UTILITY_TYPE::ENERGY_DRINK:
             utilitySprite.m_sprite.setTextureRect(sf::IntRect{{0, 22}, {8, 9}});
+            break;
 
         default:
             CE::printDebug("[OVERLAY] Warning: default case reached in setUtilitySprite");

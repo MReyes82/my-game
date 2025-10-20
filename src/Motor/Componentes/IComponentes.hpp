@@ -30,7 +30,7 @@ namespace CE
         NONE = -1,
         BANDAGE = 0,
         MEDKIT = 1,
-        ENERGY_DRINK = 2
+        ENERGY_DRINK = 2,
     };
 
     enum class ENTITY_TYPE
@@ -228,7 +228,7 @@ namespace CE
     class IWeapon : public IComponentes
     {
         public:
-            explicit IWeapon(WEAPON_TYPE t) : type{t} {}
+            explicit IWeapon(WEAPON_TYPE t);
             ~IWeapon() override = default;
 
             WEAPON_TYPE type; // current weapon type
@@ -243,7 +243,7 @@ namespace CE
     class IUtility : public IComponentes
     {
         public:
-            explicit IUtility(UTILITY_TYPE t) : type{t} {}
+            explicit IUtility(UTILITY_TYPE t);
             ~IUtility() override = default;
 
             UTILITY_TYPE type;// current utility item type

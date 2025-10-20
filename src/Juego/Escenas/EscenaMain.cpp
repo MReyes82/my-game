@@ -151,11 +151,11 @@ namespace IVJ
         CE::GestorAssets::Get().agregarTextura("heartSprite", ASSETS "/sprites/items/assets UI/UI/HUD_health01.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{8, 8});
         CE::GestorAssets::Get().agregarTextura("weaponIconsSprite", ASSETS "/sprites/items/weapons/weapon_icons.png",
-                                                CE::Vector2D{0, 0}, CE::Vector2D{10.f, 11.f});
+                                                CE::Vector2D{0, 0}, CE::Vector2D{17.f, 44.f});
         CE::GestorAssets::Get().agregarTextura("ammoIconSprite", ASSETS "/sprites/items/assets UI/UI/HUD_ammo01.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{8.f, 8.f});
-        CE::GestorAssets::Get().agregarTextura("utilityIconSprite", ASSETS "/sprites/items//utility_icons.png",
-                                               CE::Vector2D{0, 0}, CE::Vector2D{14.f, 10.f});
+        CE::GestorAssets::Get().agregarTextura("utilityIconSprite", ASSETS "/sprites/items/utility_icons.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{14.f, 31.f});
         CE::GestorAssets::Get().agregarTextura("weaponCageSprite", ASSETS "/sprites/items/assets UI/UI/empty_box.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{18.f, 18.f});
         CE::GestorAssets::Get().agregarTextura("utilityCageSprite", ASSETS "/sprites/items/assets UI/UI/empty_box.png",
@@ -220,6 +220,8 @@ namespace IVJ
         CE::GestorCamaras::Get().getCamaraActiva().lockEnObjeto(player);
 
         UIsceneOverlayElements = InfoUI();
+        // Initialize UI elements with player's actual weapon type before creating overlay
+        UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
 
         newInstance = false;

@@ -148,4 +148,21 @@ namespace CE
         puntos.push_back(p2); // punto de control
         puntos.push_back(p3); // final curva
     }
+
+    IWeapon::IWeapon(WEAPON_TYPE t)
+    {
+        type = t;
+        currentMagBullets = -1;
+        maxWeaponBullets = -1;
+        magSize = -1;
+        reloadTime = -1.f;
+        fireRate = 0.f;
+    }
+
+    IUtility::IUtility(UTILITY_TYPE t)
+    {
+        type = t;
+        quantity = 0;
+    }
+
 }
