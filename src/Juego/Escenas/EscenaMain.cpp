@@ -221,7 +221,7 @@ namespace IVJ
 
         UIsceneOverlayElements = InfoUI();
         // Initialize UI elements with player's actual weapon type before creating overlay
-        UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
+        //UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
 
         newInstance = false;

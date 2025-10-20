@@ -18,12 +18,12 @@ namespace IVJ
             auto pos = getTransformada()->posicion;
             sprite->m_sprite.setPosition({pos.x,pos.y});
         }
-        if(tieneComponente<CE::ISprite>() && tieneComponente<CE::IBoundingBox>())
+        /*if(tieneComponente<CE::ISprite>() && tieneComponente<CE::IBoundingBox>())
         {
             auto sprite = getComponente<CE::ISprite>();
             auto bound = getComponente<CE::IBoundingBox>();
             //sprite->m_sprite.setOrigin({bound->mitad.x,bound->mitad.y});
-        }
+        }*/
 
         // si tiene un FSM actualizar el estado
         if(tieneComponente<IVJ::IMaquinaEstado>())
@@ -34,6 +34,12 @@ namespace IVJ
         }
         transform->pos_prev =  transform->posicion;
 
+        // update timer component
+        if (tieneComponente<CE::ITimer>())
+        {
+            const auto timer = getComponente<CE::ITimer>();
+            timer->frame_actual++;
+        }
     }
     void Entidad::inputFSM()
     {

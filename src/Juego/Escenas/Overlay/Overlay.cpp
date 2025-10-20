@@ -257,6 +257,7 @@ namespace  IVJ
 
         case CE::UTILITY_TYPE::MEDKIT:
             utilitySprite.m_sprite.setTextureRect(sf::IntRect{{0, 11}, {14, 10}});
+            break;
 
         case CE::UTILITY_TYPE::ENERGY_DRINK:
             utilitySprite.m_sprite.setTextureRect(sf::IntRect{{0, 22}, {8, 9}});

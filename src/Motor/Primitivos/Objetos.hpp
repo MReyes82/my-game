@@ -63,7 +63,8 @@ namespace CE
             {
                 return stats;
             }
-            const bool estaVivo()const
+
+            bool estaVivo() const
             {
                 return stats->hp > 0;
             }

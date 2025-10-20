@@ -14,7 +14,7 @@ namespace IVJ
     {
     public:
         InfoUI()
-            : score{0}, healthAmount{10}, totalHealth{10}, maxAmmo{-1}, currentAmmo{-1}, weapon{CE::WEAPON_TYPE::NONE}, utility{CE::UTILITY_TYPE::NONE}
+            : score{0}, healthAmount{10}, totalHealth{10}, maxAmmo{-1}, currentAmmo{-1}, weapon{CE::WEAPON_TYPE::KNIFE}, utility{CE::UTILITY_TYPE::NONE}
         {}
 
         // setters and getters

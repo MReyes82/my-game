@@ -322,7 +322,7 @@ namespace IVJ
             return CE::WEAPON_TYPE::SMG;
 
         case 3:
-            return CE::WEAPON_TYPE::KNIFE;
+            return CE::WEAPON_TYPE::RIFLE;
 
         default:
             return CE::WEAPON_TYPE::NONE;
