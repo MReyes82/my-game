@@ -629,12 +629,12 @@ namespace IVJ
             return;
 
         auto ed_timer = player->velocityBoostTimer; // get timer for the energy drink effect
-        ed_timer->frame_actual += dt;
+        ed_timer->frame_actual++;
         // check if the effect timer has reached max
         if (player->hasTimerReachedMax(ed_timer.get()))
         {
             // reset player speed to normal
-            player->getStats()->maxSpeed /= 1.5f; // assuming the boost was 1.5x
+            player->getStats()->maxSpeed /= 2.f; // assuming the boost was 1.5x
             isEnergyDrinkActive = false;
             ed_timer->frame_actual = 0.f; // reset timer
         }
@@ -664,6 +664,45 @@ namespace IVJ
         }
     }
 
+    // System to consume the utility item that the player has picked up
+    void SystemConsumeUtility(std::shared_ptr<Entidad>& player, InfoUI& sceneOverlayElements)
+    {
+        const auto stats = player->getStats();
+        const auto utility = player->getComponente<CE::IUtility>();
+
+        switch (utility->type)
+        {
+            case CE::UTILITY_TYPE::MEDKIT:
+                // Fully restore player health
+                stats->hp = stats->hp_max;
+                break;
+
+            case CE::UTILITY_TYPE::BANDAGE:
+                // Restore half of max health
+                stats->hp += stats->hp_max / 2;
+                // Clamp to max health
+                if (stats->hp > stats->hp_max)
+                    stats->hp = stats->hp_max;
+                break;
+
+            case CE::UTILITY_TYPE::ENERGY_DRINK:
+                // Apply speed boost if not already active
+                if (!player->isVelocityBoostActive)
+                {
+                    stats->maxSpeed *= 2.f;
+                    player->isVelocityBoostActive = true;
+                }
+                break;
+
+            default:
+                // No utility to consume or NONE type
+                return;
+        }
+
+        // Consume the utility - set to NONE and update UI
+        utility->type = CE::UTILITY_TYPE::NONE;
+        sceneOverlayElements.setUtility(CE::UTILITY_TYPE::NONE);
+    }
     // System to create the loot items in the scene at the start of the main scene, called only once
     // receives the maxFrames parameter as the maximum time before the loot item needs to change it's position
     // and the maximum of loot items to create
@@ -911,3 +950,4 @@ namespace IVJ
         }
     }
 }
+

@@ -32,6 +32,7 @@ namespace IVJ
         player->getStats()->damage = 1; // knife damage
         player->getStats()->maxSpeed = 165.f;
         player->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
+        player->velocityBoostTimer = std::make_shared<CE::ITimer>(5 * SECONDS_); // 5 seconds of speed boost
 
         //! NOTE: YOU HAVE TO ADD THE COMPONENTS IN THIS ORDER, OR ELSE THE COLLISION WON'T WORK PROPERLY
         player->addComponente(std::make_shared<CE::ISprite>(
@@ -381,7 +382,8 @@ namespace IVJ
             else if (accion.getNombre() == "interactuar")
             {
                 playerControl->interactuar = true;
-                //CE::printDebug("Player interacting");
+                // Consume utility item when K is pressed
+                SystemConsumeUtility(player, UIsceneOverlayElements);
             }
         }
         else if (accion.getTipo() == CE::MouseButton::TipoAccion::OnRelease)
