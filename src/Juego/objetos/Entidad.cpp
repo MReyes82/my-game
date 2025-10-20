@@ -40,6 +40,9 @@ namespace IVJ
             const auto timer = getComponente<CE::ITimer>();
             timer->frame_actual++;
         }
+
+        // check and update damage animation state
+        checkDamageAnimation();
     }
     void Entidad::inputFSM()
     {
@@ -135,11 +138,11 @@ namespace IVJ
         timer->frame_actual = 0;
     }
 
-    // apply damage if the entity has been hit NOTE: already tested and working
+    // apply damage if the entity has been hit
     void Entidad::checkAndApplyDamage(std::uint8_t damage)
     {
         // assume it has IStats component, since every object has it (declared in constructor)
-        if (Entidad::hasBeenHit)
+        if (hasBeenHit)
         {
             getStats()->hp -= damage;
             /*
@@ -148,7 +151,8 @@ namespace IVJ
             */
             auto eSprite = getComponente<CE::ISprite>();
             eSprite->m_sprite.setColor(sf::Color::Red);
-            Entidad::isDamageAnimationActive = true;
+            isDamageAnimationActive = true;
+            hasBeenHit = false;
         }
     }
 
@@ -161,7 +165,7 @@ namespace IVJ
         eTransform->posicion += direction.escala(force);
     }
 
-    // check current state of damage animation NOTE: already tested and working
+    // check current state of damage animation
     void Entidad::checkDamageAnimation()
     {
         if (isDamageAnimationActive)
@@ -169,10 +173,10 @@ namespace IVJ
             damageTimer->frame_actual++;
             if (hasTimerReachedMax(damageTimer.get()))
             {
-                const auto eSprite = getComponente<CE::ISprite>();
-                eSprite->m_sprite.setColor(sf::Color::White);
                 isDamageAnimationActive = false;
                 resetTimer(damageTimer.get());
+                const auto eSprite = getComponente<CE::ISprite>();
+                eSprite->m_sprite.setColor(sf::Color::White);
             }
         }
     }

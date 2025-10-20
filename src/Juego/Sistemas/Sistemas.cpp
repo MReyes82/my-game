@@ -1,10 +1,12 @@
 #include "Sistemas.hpp"
 
 #include <Motor/GUI/GPropiedades.hpp>
+#include <Motor/Render/Render.hpp>
 #include <set>
 
 #include "Juego/Figuras/Figuras.hpp"
 #include "Juego/objetos/Entidad.hpp"
+#include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Utils/Lerp.hpp"
 #include "Motor/Utils/Utils.hpp"
@@ -48,7 +50,21 @@ namespace IVJ
         {
             //todo ente tiene ITransform por lo que no requiere verificación
             auto trans = ente->getTransformada();
-            trans->posicion.suma(trans->velocidad.escala(dt));
+
+            // Check if entity has control component (like player)
+            if (ente->tieneComponente<CE::IControl>())
+            {
+                // For controlled entities, velocity gets reset each frame by SistemaControl
+                // So we can directly scale and modify it
+                trans->posicion.suma(trans->velocidad.escala(dt));
+            }
+            else
+            {
+                // For non-controlled entities (bullets, enemies, etc.)
+                // Create a copy to preserve the original velocity
+                CE::Vector2D scaledVelocity = trans->velocidad;
+                trans->posicion.suma(scaledVelocity.escala(dt));
+            }
         }
     }
     // same system as above, but when manipulating Entidad objects directly
@@ -57,7 +73,20 @@ namespace IVJ
         for (auto& ente : entes)
         {
             auto trans = ente->getTransformada();
-            trans->posicion.suma(trans->velocidad.escala(dt));
+
+            // Check if entity has control component (like player)
+            if (ente->tieneComponente<CE::IControl>())
+            {
+                // For controlled entities, velocity gets reset each frame by SistemaControl
+                trans->posicion.suma(trans->velocidad.escala(dt));
+            }
+            else
+            {
+                // For non-controlled entities (bullets, enemies, loot items, etc.)
+                // Create a copy to preserve the original velocity
+                CE::Vector2D scaledVelocity = trans->velocidad;
+                trans->posicion.suma(scaledVelocity.escala(dt));
+            }
         }
     }
 
@@ -686,5 +715,199 @@ namespace IVJ
             }
         }
     }
-}
 
+    // Helper function to calculate projectile velocity based on mouse position and projectile position
+    CE::Vector2D calculateProjectileVel(const sf::Vector2i& mousePos, const CE::Vector2D& projectilePos, float speed)
+    {
+        // Map pixel coordinates to world coordinates using the render window AND the active camera's view
+        const sf::Vector2f mousePosOnWorld = CE::Render::Get().GetVentana().mapPixelToCoords(
+            mousePos,
+            CE::GestorCamaras::Get().getCamaraActiva().getView()
+        );
+
+        //std::cout << "[calculateProjectileVel] Mouse pos on world: " << mousePosOnWorld.x << " " << mousePosOnWorld.y << std::endl;
+        // Calculate direction vector from projectile position to mouse position
+        CE::Vector2D direction = CE::Vector2D{mousePosOnWorld.x, mousePosOnWorld.y} - projectilePos;
+        // Normalize the direction vector
+        direction.normalizacion();
+        // Scale the normalized direction by the desired speed
+        const CE::Vector2D finalVelocity = direction.escala(speed);
+
+        return finalVelocity;
+    }
+
+    // System to generate bullets when the player is attacking
+    void SystemGenerateBullets(const bool isAttacking, std::shared_ptr<Entidad>& player, std::vector<std::shared_ptr<Entidad>>& bulletsShot)
+    {
+        // If the player is not attacking this frame, do nothing
+        if (!isAttacking)
+            return;
+
+        // 1. Get the current mouse position in window coordinates
+        const sf::Vector2i currentMousePosition = sf::Mouse::getPosition(CE::Render::Get().GetVentana());
+        // 2. Calculate a normalized velocity vector from the player to the mouse,
+        //    scaled by the desired bullet speed (400 units/sec)
+        const CE::Vector2D bulletTarget = calculateProjectileVel(currentMousePosition,
+                                                                   player->getTransformada()->posicion,
+                                                                   400.f);
+        // 3. Capture the player's current position for the bullet spawn point
+        const auto pos = player->getTransformada()->posicion;
+        // 4. Create a new projectile entity
+        auto bullet = std::make_shared<Entidad>();
+        // 5. Attach components to the bullet:
+        //    a) Transform: initial position and calculated velocity
+        //    b) Sprite: texture, sub‐rect, scale
+        //    c) BoundingBox: half‐width/height for collisions
+        //    d) Stats: holds damage and maxSpeed
+        //    e) Timer: lifespan in frames (120 ≈ 2 seconds at 60 FPS)
+        bullet->setPosicion(pos.x, pos.y);
+        bullet->getTransformada()->velocidad = CE::Vector2D{bulletTarget};
+        // assume texture is already loaded in main scene (as for every other entity with a sprite)
+        bullet->addComponente(std::make_shared<CE::ISprite>(
+                             CE::GestorAssets::Get().getTextura("bulletSprite"),
+                             16, 16, 0.25f))
+              .addComponente(std::make_shared<CE::IBoundingBox>(
+                             CE::Vector2D{8.f, 8.f}))
+              .addComponente(std::make_shared<CE::ITimer>(120));
+        // 6. Initialize bullet-specific stats:
+        //    - damage matches the player's current weapon damage
+        //    - maxSpeed is a fixed projectile speed
+        bullet->getStats()->hp = 1; // so the pool does not delete it immediately
+        bullet->getStats()->damage = player->getStats()->damage;
+        bullet->getStats()->maxSpeed = 20.f;
+        // 7. Add entity type component to identify as projectile
+        bullet->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PROJECTILE));
+        // 8. Store the new bullet in the active list for updates & rendering
+        bulletsShot.push_back(bullet);
+        std::cout << "[SystemGenerateBullets] Bullet created at position: " << pos.x << ", " << pos.y << std::endl;
+    }
+
+    // System to add entities from a vector to the main Pool
+    // This transfers ownership to share it with the Pool as well
+    void SystemAddEntitiesToPool(std::vector<std::shared_ptr<Entidad>>& entities, CE::Pool& pool)
+    {
+        if (entities.empty())
+            return;
+
+        std::cout << "[SystemAddEntitiesToPool] Adding " << entities.size() << " entities to pool" << std::endl;
+        for (auto& entity : entities)
+        {
+            // Add entity to the main pool
+            pool.agregarPool(entity);
+        }
+    }
+
+    // System to update bullet states each frame
+    // Handles collision detection, damage application, and bullet removal
+    void SystemUpdateBulletsState(std::vector<std::shared_ptr<Entidad>>& bulletsShot,
+        std::vector<std::shared_ptr<Entidad>>& enemies,
+        std::shared_ptr<Entidad>& player,
+        CE::Pool& collisionPool,
+        int& currentEnemiesInScene,
+        float dt)
+    {
+        /*
+         * Update state of all active bullets each frame:
+         * 1. Advance each bullet's internal timer and components.
+         * 2. Check collisions with living enemies.
+         * 3. Apply damage using checkAndApplyDamage (ensures damage applied only once).
+         * 4. Check collisions with static objects (walls, obstacles).
+         * 5. Remove bullets that expired or collided.
+         */
+
+        // Iterate with an iterator since bullets may be erased mid-loop
+        for (auto it = bulletsShot.begin(); it != bulletsShot.end(); )
+        {
+            auto& bullet = *it;
+            bool bulletRemoved = false;
+
+            // 1. Advance bullet's lifetime and any attached components
+            bullet->onUpdate(dt);
+
+            // Track if bullet hit anything this frame
+            bool bulletHitSomething = false;
+
+            // 2. Check collision against each enemy
+            for (auto& enemy : enemies)
+            {
+                /*// Skip if enemy doesn't have entity type component
+                if (!enemy->tieneComponente<CE::IEntityType>())
+                    continue;
+
+                // Skip non-enemy entities
+                if (enemy->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
+                    continue;*/
+
+                // Skip enemies with no HP left
+                if (enemy->getStats()->hp <= 0)
+                    continue;
+
+                // If bullet overlaps an enemy's bounding box
+                if (SistemaColAABBMid(*bullet, *enemy, false))
+                {
+                    // Mark enemy as hit so checkAndApplyDamage can process it
+                    enemy->hasBeenHit = true;
+
+                    // Apply damage using the Entidad method (handles red flash animation)
+                    enemy->checkAndApplyDamage(bullet->getStats()->damage);
+
+                    // Mark bullet as hit
+                    bulletHitSomething = true;
+
+                    //std::cout << "[SystemUpdateBulletsState] Bullet hit enemy! Damage: " << static_cast<int>(bullet->getStats()->damage) << std::endl;
+
+                    // 3. If enemy HP is depleted, update score and enemy count
+                    if (enemy->getStats()->hp <= 0)
+                    {
+                        player->getStats()->score += 1;  // award point
+                        currentEnemiesInScene--;         // track remaining enemies
+
+                        // std::cout << "[SystemUpdateBulletsState] Enemy killed! Score: "
+                        //           << player->getStats()->score
+                        //           << ", Remaining enemies: " << currentEnemiesInScene << std::endl;
+                    }
+
+                    // Bullet can only hit one enemy per frame, so break
+                    break;
+                }
+            }
+
+            // 4. Check collision with static objects (walls, obstacles) from the pool
+            if (!bulletHitSomething)
+            {
+                for (auto& obj : collisionPool.getPool())
+                {
+                    // Skip if object doesn't have entity type
+                    if (!obj->tieneComponente<CE::IEntityType>())
+                        continue;
+
+                    // Only check collision with static/dynamic objects (not enemies, not player, not loot)
+                    auto entityType = obj->getComponente<CE::IEntityType>()->type;
+                    if (entityType != CE::ENTITY_TYPE::STATIC && entityType != CE::ENTITY_TYPE::DYNAMIC)
+                        continue;
+
+                    // Check collision with obstacle
+                    if (SistemaColAABBMid(*bullet, *obj, false))
+                    {
+                        bulletHitSomething = true;
+                        //std::cout << "[SystemUpdateBulletsState] Bullet hit obstacle!" << std::endl;
+                        break;
+                    }
+                }
+            }
+
+            // 5. Remove bullet if it expired (timer reached max) or hit something
+            if (bullet->hasTimerReachedMax(bullet->getComponente<CE::ITimer>()) || bulletHitSomething)
+            {
+                bullet->getStats()->hp = 0;  // Mark as dead for pool cleanup
+                it = bulletsShot.erase(it);  // erase returns next iterator
+                bulletRemoved = true;
+                // std::cout << "[SystemUpdateBulletsState] Bullet removed. Active bullets: "
+                //           << bulletsShot.size() << std::endl;
+            }
+            // Only advance iterator if we didn't erase
+            if (!bulletRemoved)
+                ++it;
+        }
+    }
+}

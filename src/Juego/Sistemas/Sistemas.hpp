@@ -11,6 +11,7 @@ namespace IVJ
 {
     [[maybe_unused]]void SistemaControl(CE::Objeto&ente, float dt);
     [[maybe_unused]]void SistemaMover(const std::vector<std::shared_ptr<CE::Objeto>>& entes, float dt);
+    [[maybe_unused]] void SistemaMoverEntidad(const std::vector<std::shared_ptr<Entidad>>& entes, float dt);
     [[maybe_unused]]bool SistemaColAABB(CE::Objeto& A,CE::Objeto& B, bool resolucion =false);
     [[maybe_unused]]bool SistemaColAABBMid(CE::Objeto& A, CE::Objeto& B, bool resolucion =false);
 
@@ -39,4 +40,15 @@ namespace IVJ
         std::shared_ptr<Entidad>& player,
         CE::WEAPON_TYPE& tempRefWpn, CE::UTILITY_TYPE& tempRefUtil, InfoUI& sceneOverlayElements);
     [[maybe_unused]] void SystemCreateLootItems(std::vector<std::shared_ptr<Entidad>>& lootItems , const std::array<CE::Vector2D, 20>& positionsArr, int maxFrames, int maxLootItems);
+
+    // -------------- BULLET GENERATION SYSTEMS --------------
+    [[maybe_unused]] CE::Vector2D calculateProjectileVel(const sf::Vector2i& mousePos, const CE::Vector2D& projectilePos, float speed);
+    [[maybe_unused]] void SystemGenerateBullets(bool isAttacking, std::shared_ptr<Entidad>& player, std::vector<std::shared_ptr<Entidad>>& bulletsShot);
+    [[maybe_unused]] void SystemAddEntitiesToPool(std::vector<std::shared_ptr<Entidad>>& entities, CE::Pool& pool);
+    [[maybe_unused]] void SystemUpdateBulletsState(std::vector<std::shared_ptr<Entidad>>& bulletsShot,
+        std::vector<std::shared_ptr<Entidad>>& enemies,
+        std::shared_ptr<Entidad>& player,
+        CE::Pool& collisionPool,
+        int& currentEnemiesInScene,
+        float dt);
 }

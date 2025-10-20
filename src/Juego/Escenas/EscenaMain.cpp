@@ -100,6 +100,7 @@ namespace IVJ
             fsm_init->onEntrar(*enemy);
 
             enemy->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+            enemy->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
 
             objetos.agregarPool(enemy);
         }
@@ -164,6 +165,8 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         CE::GestorAssets::Get().agregarTextura("utilityLootBoxSprite", ASSETS "/sprites/items/PowerUps1.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+        CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
 
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
@@ -207,11 +210,7 @@ namespace IVJ
         CE::GestorAssets::Get().agregarTextura("hojaChongus", ASSETS "/sprites/enemies/chongus_sprite.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{128, 96});
         SystemCreateLootItems(lootItems, lootPositions, 60 * SECONDS_, 10); // create 10 loot items with 10 seconds timer
-        std::cout << "Loot items created: " << lootItems.size() << "\n";
-        for (auto& item : lootItems)
-        {
-            objetos.agregarPool(item);
-        }
+        SystemAddEntitiesToPool(lootItems, objetos);
         initPlayerPointer();
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
@@ -235,8 +234,12 @@ namespace IVJ
     {
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
-        //auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        //SystemFollowPlayer(objetos.getPool(), *player, dt);
+        // get enemies vector from pool
+        auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
+        auto isAttacking = player->getComponente<CE::IControl>()->atacar;
+        SystemGenerateBullets(isAttacking, player, bulletsShot);
+        SystemAddEntitiesToPool(bulletsShot, objetos);
+        SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
 
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
 
@@ -254,7 +257,7 @@ namespace IVJ
         player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
         player->inputFSM();
 
-        //SystemFollowPlayer()
+
         for (auto& currentObject : objetos.getPool())
         {
             currentObject->onUpdate(dt);

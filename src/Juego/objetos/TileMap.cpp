@@ -47,7 +47,8 @@ namespace IVJ
                     bloque->getStats()->hp = 100;
                     bloque->setPosicion(i*tile_w+hw,j*tile_h+hh);
                     bloque->addComponente(std::make_shared<CE::IBoundingBox>(
-                                CE::Vector2D{(float)tile_w,(float)tile_h}));
+                                CE::Vector2D{(float)tile_w,(float)tile_h}))
+                    .addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::STATIC));
                     objetos.agregarPool(bloque);
                 }
 
