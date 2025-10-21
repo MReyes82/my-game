@@ -39,7 +39,7 @@ namespace IVJ
         //! NOTE: YOU HAVE TO ADD THE COMPONENTS IN THIS ORDER, OR ELSE THE COLLISION WON'T WORK PROPERLY
         player->addComponente(std::make_shared<CE::ISprite>(
                     CE::GestorAssets::Get().getTextura("hojaPlayer"),
-                    32, 32, 1.5f))
+                    32, 32, 1.0f))
                 .addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f * PLAYER_BOUNDINGBOX_FACTOR, 32.f * PLAYER_BOUNDINGBOX_FACTOR}))
                 .addComponente(std::make_shared<IVJ::IMaquinaEstado>())
                 .addComponente(std::make_shared<CE::IControl>());
@@ -189,6 +189,7 @@ namespace IVJ
         UIsceneOverlayElements.setScore(player->getStats()->score);
         UIsceneOverlayElements.setCurrentAmmo(player->getComponente<CE::IWeapon>()->currentMagBullets);
         UIsceneOverlayElements.setMaxAmmo(player->getComponente<CE::IWeapon>()->maxWeaponBullets);
+        UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
         SystemChangePlayerItems(player->shouldChangeWeapon, player->shouldChangeUtility,
                                 player,
                                 newWeaponType,
@@ -251,14 +252,18 @@ namespace IVJ
             return;
         }
 
-        // Player damage animation is already checked in entity onUpdate method
+        if (shouldShowNewRoundText)
+        {
+            newRoundTextTimer.frame_actual++;
+        }
 
+        // Player damage animation is already checked in entity onUpdate method
         // Get control component
         const auto& control = player->getComponente<CE::IControl>();
+        bool isAttacking = control->atacar;
         const auto& weapon = player->getComponente<CE::IWeapon>();
-
         // Handle fire rate for shooting weapons
-        if (control->atacar)
+        if (isAttacking)
         {
             player->fireRateTimer->frame_actual++;
 
@@ -274,84 +279,37 @@ namespace IVJ
             // Reset the timer when attack button is releasedsd
             player->fireRateTimer->max_frame = static_cast<int>(weapon->fireRate * SECONDS_);
         }
+        SystemAddEntitiesToPool(bulletsShot, objetos);
 
-        if (shouldShowNewRoundText)
-        {
-            newRoundTextTimer.frame_actual++;
-        }
+        SistemaControl(*player, dt);
+        SistemaMover(objetos.getPool(), dt);
+        auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
 
-        // Update loot items
+        SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
+        SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
+
+        checkRoundEnd();
+        movePlayerPointer();
         SystemUpdateLootItems(lootItems, player,
             newWeaponType, newUtilityType,
-            lootPositions,
-            player->shouldChangeWeapon, player->shouldChangeUtility,
-            dt);
+            lootPositions, player->shouldChangeWeapon,
+            player->shouldChangeUtility, dt);
 
-        // Update player UI
         updatePlayerUI();
         sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
 
-        // Update player facing direction
         player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
         player->inputFSM();
-
-        // Handle player control and movement
-        SistemaControl(*player, dt);
-        SistemaMover({player}, dt);
-
-        // Handle weapon reload
         player->handleReload();
 
-        // Update and move bullets
-        SystemAddEntitiesToPool(bulletsShot, objetos);
-        SistemaMoverEntidad(bulletsShot, dt);
-
-        // Get enemies vector from pool
-        auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-
-        // Update bullets state and check collisions
-        SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
-
-        // Move enemies
-        SistemaMoverEntidad(enemies, dt);
-
-        // Check if round has ended
-        checkRoundEnd();
-        // Refresh enemies vector if empty
-        if (enemies.empty())
-            enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-
-
-        // Update all entities in pool
-        for (auto& e : objetos.getPool())
-        {
-            e->onUpdate(dt);
-        }
-
-        // Move static objects (updates sprite positions even though they don't move)
-        auto staticObjects = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::STATIC);
-        SistemaMoverEntidad(staticObjects, dt);
-
-        // Check collision with static objects
-        for (auto& o : staticObjects)
-        {
-            SistemaColAABBMid(*player, *o, true);
-        }
-        // Check limits for enemies
-        //SystemCheckLimits(enemies, 3840.f, 3840.f);
-        // Make enemies follow the player
-        //SystemFollowPlayer(std::vector<std::shared_ptr<CE::Objeto>>(enemies.begin(), enemies.end()), *player, dt);
-
-        // Handle enemy collision and attacks
-        movePlayerPointer();
         for (auto& obj : objetos.getPool())
         {
+            obj->onUpdate(dt);
             if (obj != player)
             {
                 SistemaColAABBMid(*player, *obj, true);
             }
         }
-
 
         for (auto& e : enemies)
         {

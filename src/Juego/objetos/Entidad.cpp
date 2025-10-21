@@ -228,7 +228,7 @@ namespace IVJ
         if (weaponIsEmpty() && weaponComp->maxWeaponBullets <= 0)
         {
             weaponComp->type = CE::WEAPON_TYPE::KNIFE;
-            shouldChangeWeapon = true;
+            //shouldChangeWeapon = true;
         }
     }
     // in place handling of damage applying to enemy entity when the
