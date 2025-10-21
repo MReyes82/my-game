@@ -442,8 +442,6 @@ namespace IVJ
 
         if (accion.getTipo() == CE::MouseButton::TipoAccion::OnPress)
         {
-            // TODO: find a better way to prevent triggering the state change to attack while reloading,
-            // TODO: currently this only works if the player releases and presses again the attack button after beginning the reloading
             if (accion.getNombre() == "atacar" && !isPlayerReloading)
             {
                 playerControl->atacar = true;

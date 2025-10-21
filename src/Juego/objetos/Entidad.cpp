@@ -146,7 +146,11 @@ namespace IVJ
         // assume it has IStats component, since every object has it (declared in constructor)
         if (hasBeenHit)
         {
-            getStats()->hp -= damage;
+            // add checking: if the damage applying will trigger and int overflow, set to 0
+            if (damage >= getStats()->hp)
+                getStats()->hp = 0;
+            else
+                getStats()->hp -= damage;
             /*
             * Now apply red flash animation to sprite
             * Is set here to begin the flash animation

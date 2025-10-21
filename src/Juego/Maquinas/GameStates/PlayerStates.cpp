@@ -22,7 +22,8 @@ namespace IVJ
             return new MovingState(false);
         if (control.izq)
             return new MovingState(true);
-        if (control.atacar)
+        // Only transition to attacking state if not reloading
+        if (control.atacar && !obj.isReloading)
             return new AttackingStillState(!obj.getIsEntityFacingRight());
 
         return nullptr;
@@ -121,7 +122,8 @@ namespace IVJ
         else if (control.izq)
             shouldFlip = true;
 
-        if (control.atacar)
+        // Only transition to attacking state if not reloading
+        if (control.atacar && !obj.isReloading)
             return new AttackingMovingState(!obj.getIsEntityFacingRight());
 
         return nullptr;
@@ -210,6 +212,10 @@ namespace IVJ
 
     FSM* AttackingStillState::onInputs(const CE::IControl &control, const Entidad& obj)
     {
+        // If reloading started, immediately exit to idle state
+        if (obj.isReloading)
+            return new IdleState(shouldFlip);
+
         // if the attack button is released, return to idle or moving state
         if (!control.atacar)
             return new IdleState(shouldFlip);
@@ -324,6 +330,16 @@ namespace IVJ
 
     FSM* AttackingMovingState::onInputs(const CE::IControl &control, const Entidad& obj)
     {
+        // If reloading started, immediately exit to moving or idle state
+        if (obj.isReloading)
+        {
+            bool playerStillMoving = control.arr || control.abj || control.der || control.izq;
+            if (playerStillMoving)
+                return new MovingState(shouldFlip);
+            else
+                return new IdleState(shouldFlip);
+        }
+
         bool playerStoppedMoving = !control.arr && !control.abj && !control.der && !control.izq;
         if (playerStoppedMoving)
             return new AttackingStillState(shouldFlip);

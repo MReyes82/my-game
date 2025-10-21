@@ -805,7 +805,7 @@ namespace IVJ
         // assume texture is already loaded in main scene (as for every other entity with a sprite)
         bullet->addComponente(std::make_shared<CE::ISprite>(
                              CE::GestorAssets::Get().getTextura("bulletSprite"),
-                             16, 16, 0.25f))
+                             16, 16, 0.5f))
               .addComponente(std::make_shared<CE::IBoundingBox>(
                              CE::Vector2D{8.f, 8.f}))
               .addComponente(std::make_shared<CE::ITimer>(120));
@@ -819,7 +819,7 @@ namespace IVJ
         bullet->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PROJECTILE));
         // 8. Store the new bullet in the active list for updates & rendering
         bulletsShot.push_back(bullet);
-        std::cout << "[SystemGenerateBullets] Bullet created at position: " << pos.x << ", " << pos.y << std::endl;
+        //std::cout << "[SystemGenerateBullets] Bullet created at position: " << pos.x << ", " << pos.y << std::endl;
     }
 
     // System to add entities from a vector to the main Pool
@@ -829,7 +829,7 @@ namespace IVJ
         if (entities.empty())
             return;
 
-        std::cout << "[SystemAddEntitiesToPool] Adding " << entities.size() << " entities to pool" << std::endl;
+        //std::cout << "[SystemAddEntitiesToPool] Adding " << entities.size() << " entities to pool" << std::endl;
         for (auto& entity : entities)
         {
             // Add entity to the main pool
@@ -890,12 +890,8 @@ namespace IVJ
 
                     // Apply damage using the Entidad method (handles red flash animation)
                     enemy->checkAndApplyDamage(bullet->getStats()->damage);
-
                     // Mark bullet as hit
                     bulletHitSomething = true;
-
-                    //std::cout << "[SystemUpdateBulletsState] Bullet hit enemy! Damage: " << static_cast<int>(bullet->getStats()->damage) << std::endl;
-
                     // 3. If enemy HP is depleted, update score and enemy count
                     if (enemy->getStats()->hp <= 0)
                     {
@@ -906,7 +902,6 @@ namespace IVJ
                         //           << player->getStats()->score
                         //           << ", Remaining enemies: " << currentEnemiesInScene << std::endl;
                     }
-
                     // Bullet can only hit one enemy per frame, so break
                     break;
                 }
@@ -935,7 +930,6 @@ namespace IVJ
                     }
                 }
             }
-
             // 5. Remove bullet if it expired (timer reached max) or hit something
             if (bullet->hasTimerReachedMax(bullet->getComponente<CE::ITimer>()) || bulletHitSomething)
             {
@@ -976,8 +970,6 @@ namespace IVJ
         {
             player->attackWithKnife(isAttacking, enemyToAttack);
         }
-
-
     }
 }
 
