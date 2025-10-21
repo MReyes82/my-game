@@ -33,6 +33,8 @@ namespace IVJ
         player->getStats()->maxSpeed = 165.f;
         player->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
         player->velocityBoostTimer = std::make_shared<CE::ITimer>(5 * SECONDS_); // 5 seconds of speed boost
+        player->reloadTimer = std::make_shared<CE::ITimer>(0); // max will be set when weapon is equipped
+        player->fireRateTimer = std::make_shared<CE::ITimer>(0); // max will be set when weapon is equipped
 
         //! NOTE: YOU HAVE TO ADD THE COMPONENTS IN THIS ORDER, OR ELSE THE COLLISION WON'T WORK PROPERLY
         player->addComponente(std::make_shared<CE::ISprite>(
@@ -74,6 +76,9 @@ namespace IVJ
 
     void EscenaMain::summonEnemies(const int maxEnemies)
     {
+        // Track used position indices to ensure no duplicates during enemy spawning
+        std::set<int> usedPositionIndices;
+
         for (int i = 0 ; i < maxEnemies ; i++)
         {
             auto enemy = std::make_shared<Entidad>();
@@ -84,7 +89,8 @@ namespace IVJ
             constexpr float enemyWidth = 32.f;
             constexpr float enemyHeight = 32.f;
             constexpr float enemyScale = 1.f;
-            const int randomSpawnIndex = rand() % spawnPositions.size();
+            // Use SystemGetRandomPosition to ensure no duplicate spawn positions
+            const int randomSpawnIndex = SystemGetRandomPosition(spawnPositions, usedPositionIndices);
             enemy->setPosicion(spawnPositions[randomSpawnIndex].x, spawnPositions[randomSpawnIndex].y);
             SystemAdjustEntityStats(enemy, randNum);
 
@@ -118,7 +124,7 @@ namespace IVJ
             CE::printDebug("New round: " + std::to_string(currentRound));
             shouldShowNewRoundText = true; // todo: implement a UIInfo class to show
             // update player reference to the end of the pool
-            movePlayerPointer();
+            //movePlayerPointer();
         }
     }
 
@@ -127,8 +133,10 @@ namespace IVJ
     void EscenaMain::movePlayerPointer()
     {
         if (objetos.getPool().empty())
+        {
+            //
             return;
-
+        }
         auto& pool = objetos.getPool();
         // search for the player object in the pool
         auto it = std::find_if(pool.begin(), pool.end(), // if found, it will be an iterator to the player object
@@ -223,6 +231,7 @@ namespace IVJ
         // Initialize UI elements with player's actual weapon type before creating overlay
         //UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
+        newRoundTextTimer.max_frame = 5 * SECONDS_;
 
         newInstance = false;
         gameState = true;
@@ -233,63 +242,163 @@ namespace IVJ
 
     void EscenaMain::onUpdate(float dt)
     {
-        SistemaControl(*player, dt);
-        SistemaMover(objetos.getPool(), dt);
-        // get enemies vector from pool
-        auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        auto isAttacking = player->getComponente<CE::IControl>()->atacar;
-        SystemGenerateBullets(isAttacking, player, bulletsShot);
-        SystemAddEntitiesToPool(bulletsShot, objetos);
-        SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
+        // First check if the player is alive
+        if (!player->estaVivo())
+        {
+            // Navigate to game over scene
+            // TODO: create game over scene and pass score as parameter
+            CE::GestorEscenas::Get().cambiarEscena("Menu");
+            return;
+        }
 
-        SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
+        // Player damage animation is already checked in entity onUpdate method
 
-        // check if round has ended, if so, summon new enemies
-        checkRoundEnd();
+        // Get control component
+        const auto& control = player->getComponente<CE::IControl>();
+        const auto& weapon = player->getComponente<CE::IWeapon>();
+
+        // Handle fire rate for shooting weapons
+        if (control->atacar)
+        {
+            player->fireRateTimer->frame_actual++;
+
+            if (player->hasTimerReachedMax(player->fireRateTimer.get()))
+            {
+                std::shared_ptr<Entidad> noEnemy = nullptr; // Can't pass nullptr directly to non-const reference
+                SystemplayerAttack(true, player, bulletsShot, noEnemy);
+                player->resetTimer(player->fireRateTimer.get());
+            }
+        }
+        else
+        {
+            // Reset the timer when attack button is releasedsd
+            player->fireRateTimer->max_frame = static_cast<int>(weapon->fireRate * SECONDS_);
+        }
+
+        if (shouldShowNewRoundText)
+        {
+            newRoundTextTimer.frame_actual++;
+        }
+
+        // Update loot items
         SystemUpdateLootItems(lootItems, player,
             newWeaponType, newUtilityType,
             lootPositions,
             player->shouldChangeWeapon, player->shouldChangeUtility,
             dt);
-        // update overlay elements
+
+        // Update player UI
         updatePlayerUI();
         sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
-        // it looks verbose but it's necessary to update the player facing direction
+
+        // Update player facing direction
         player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
         player->inputFSM();
 
+        // Handle player control and movement
+        SistemaControl(*player, dt);
+        SistemaMover({player}, dt);
 
-        for (auto& currentObject : objetos.getPool())
+        // Handle weapon reload
+        player->handleReload();
+
+        // Update and move bullets
+        SystemAddEntitiesToPool(bulletsShot, objetos);
+        SistemaMoverEntidad(bulletsShot, dt);
+
+        // Get enemies vector from pool
+        auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
+
+        // Update bullets state and check collisions
+        SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
+
+        // Move enemies
+        SistemaMoverEntidad(enemies, dt);
+
+        // Check if round has ended
+        checkRoundEnd();
+        // Refresh enemies vector if empty
+        if (enemies.empty())
+            enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
+
+
+        // Update all entities in pool
+        for (auto& e : objetos.getPool())
         {
-            currentObject->onUpdate(dt);
-            /*if (currentObject != player)
-            {
-                Entidad* enemyCast = &dynamic_cast<Entidad&>(*currentObject);
-                if (enemyCast->tieneComponente<CE::IEntityType>())
-                {
-                    if (enemyCast->getComponente<CE::IEntityType>()->type == CE::ENTITY_TYPE::ENEMY) enemyCast->inputFSM();
-                }
-            }*/
+            e->onUpdate(dt);
+        }
 
-            if (currentObject != player)
+        // Move static objects (updates sprite positions even though they don't move)
+        auto staticObjects = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::STATIC);
+        SistemaMoverEntidad(staticObjects, dt);
+
+        // Check collision with static objects
+        for (auto& o : staticObjects)
+        {
+            SistemaColAABBMid(*player, *o, true);
+        }
+        // Check limits for enemies
+        //SystemCheckLimits(enemies, 3840.f, 3840.f);
+        // Make enemies follow the player
+        //SystemFollowPlayer(std::vector<std::shared_ptr<CE::Objeto>>(enemies.begin(), enemies.end()), *player, dt);
+
+        // Handle enemy collision and attacks
+        movePlayerPointer();
+        for (auto& obj : objetos.getPool())
+        {
+            if (obj != player)
             {
-                if (SistemaColAABBMid(*player, *currentObject, true))
+                SistemaColAABBMid(*player, *obj, true);
+            }
+        }
+
+
+        for (auto& e : enemies)
+        {
+            if (SistemaColAABBMid(*player, *e, true))
+            {
+                // Enemy collides with player
+                e->setCollidedWithAnotherEntity(true);
+
+                // Player attacks enemy with knife if attacking
+                SystemplayerAttack(control->atacar, player, bulletsShot, e);
+
+                // Set enemy attack timer
+                if (e->tieneComponente<CE::ITimer>())
                 {
-                    //CE::printDebug("Player collided with another entity");
-                    auto& objectCast = dynamic_cast<Entidad&>(*currentObject);
-                    objectCast.setCollidedWithAnotherEntity(true);
-                    //std::cout << "Player pos: " << player->getTransformada()->posicion.x << ", " << player->getTransformada()->posicion.y << "\n";
-                    //std::cout << "Object pos: " << currentObject->getTransformada()->posicion.x << ", " << currentObject->getTransformada()->posicion.y << "\n";
+                    e->getComponente<CE::ITimer>()->max_frame = 60; // frames of attack animation
                 }
-                else
+
+                // Check if enemy finished attack animation
+                if (e->hasTimerReachedMax(e->getComponente<CE::ITimer>()))
                 {
-                    //CE::printDebug("Player NOT collided with another entity");
-                    auto& objectCast = dynamic_cast<Entidad&>(*currentObject);
-                    objectCast.setCollidedWithAnotherEntity(false);
+                    e->setCollidedWithAnotherEntity(false);
+
+                    // Mark player as hit and apply damage
+                    player->hasBeenHit = true;
+                    player->checkAndApplyDamage(e->getStats()->damage);
+
+                    /*// Apply knockback to player
+                    CE::Vector2D knockbackDir = player->getTransformada()->posicion;
+                    knockbackDir.resta(e->getTransformada()->posicion);
+                    knockbackDir.normalizacion();
+                    player->applyKnockback(knockbackDir, 200.f);*/
+
+                    // Reset enemy timer
+                    e->resetTimer(e->getComponente<CE::ITimer>());
+                }
+            }
+            else
+            {
+                e->setCollidedWithAnotherEntity(false);
+                if (e->tieneComponente<CE::ITimer>())
+                {
+                    e->getComponente<CE::ITimer>()->max_frame = -1;
                 }
             }
         }
 
+        // Clean up dead objects from pool
         objetos.borrarPool();
     }
 
@@ -371,13 +480,15 @@ namespace IVJ
     void EscenaMain::onInputs(const CE::MouseButton &accion)
     {
         auto playerControl = player->getComponente<CE::IControl>();
+        auto isPlayerReloading = player->isReloading;
 
         if (accion.getTipo() == CE::MouseButton::TipoAccion::OnPress)
         {
-            if (accion.getNombre() == "atacar")
+            // TODO: find a better way to prevent triggering the state change to attack while reloading,
+            // TODO: currently this only works if the player releases and presses again the attack button after beginning the reloading
+            if (accion.getNombre() == "atacar" && !isPlayerReloading)
             {
                 playerControl->atacar = true;
-                //CE::printDebug("Player attacking");
             }
             else if (accion.getNombre() == "interactuar")
             {
@@ -414,18 +525,17 @@ namespace IVJ
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 
-        if (false) // newRoundTextTimer <= 2 * SECONDS_ && shouldShowNewRoundText
+        if (newRoundTextTimer.frame_actual <= newRoundTextTimer.max_frame && shouldShowNewRoundText)
         {
             //CE::printDebug("DRAW ROUND TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getRoundText());
-
         }
         else
         {
-            // shouldShowNewRoundText = false;
-            // newRoundTextTimer = 0;
+            shouldShowNewRoundText = false;
+            newRoundTextTimer.frame_actual = 0;
         }
-        if (false) // isReloaing
+        if (player->isReloading)
         {
             //CE::printDebug("DRAW RELOADING TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getReloadingText());

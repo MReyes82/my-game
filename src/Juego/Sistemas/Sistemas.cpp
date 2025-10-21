@@ -510,7 +510,7 @@ namespace IVJ
             weapon->currentMagBullets = 6;
             weapon->magSize = 6;
             weapon->maxWeaponBullets = 36; // 6 mags
-            weapon->reloadTime = 0.5f;
+            weapon->reloadTime = 3.f;
             weapon->fireRate = 0.8f; // 0.8 seconds between shots
             break;
 
@@ -519,7 +519,7 @@ namespace IVJ
             weapon->currentMagBullets = 5;
             weapon->magSize = 5;
             weapon->maxWeaponBullets = 25; // 5 mags
-            weapon->reloadTime = 1.0f;
+            weapon->reloadTime = 5.0f;
             weapon->fireRate = 1.2f; // 1.2 seconds between
             break;
 
@@ -528,7 +528,7 @@ namespace IVJ
             weapon->currentMagBullets = 25;
             weapon->magSize = 25;
             weapon->maxWeaponBullets = 100; // 4 mags
-            weapon->reloadTime = 1.5f;
+            weapon->reloadTime = 2.f;
             weapon->fireRate = 0.0833f ; // 12 bullets per second
             break;
 
@@ -537,7 +537,7 @@ namespace IVJ
             weapon->currentMagBullets = 30;
             weapon->magSize = 30;
             weapon->maxWeaponBullets = 90; // 3 mags
-            weapon->reloadTime = 2.0f;
+            weapon->reloadTime = 2.5f;
             weapon->fireRate = 0.1f; // 10 bullets per second
             break;
 
@@ -618,13 +618,17 @@ namespace IVJ
         }
         // call to the movement system for the loot items so the positions are updated
         SistemaMoverEntidad(lootItems, dt);
-        SystemUpdateEnergyDrink(player->isVelocityBoostActive, player, dt); // always true since the energy drink effect is handled inside the method
+        SystemUpdateEnergyDrink(player); // always true since the energy drink effect is handled inside the method
     }
 
-    // system to handle the energy drink effect on the player
-    void SystemUpdateEnergyDrink(bool& isEnergyDrinkActive, std::shared_ptr<Entidad>& player, float dt)
+    /*
+     * system to handle the energy drink effect on the player
+     * this system is implemented for the player but used the abstraction of the velocity boost
+     * methods and attributes
+    */
+    void SystemUpdateEnergyDrink(std::shared_ptr<Entidad>& player)
     {
-        if (!isEnergyDrinkActive)
+        if (!player->isVelocityBoostActive)
         // do nothing if the energy drink effect is not active
             return;
 
@@ -634,9 +638,7 @@ namespace IVJ
         if (player->hasTimerReachedMax(ed_timer.get()))
         {
             // reset player speed to normal
-            player->getStats()->maxSpeed /= 2.f; // assuming the boost was 1.5x
-            isEnergyDrinkActive = false;
-            ed_timer->frame_actual = 0.f; // reset timer
+            player->resetSpeed(2.f);
         }
     }
     // System to update the UI sprite for the loot items and change the player items when picked from loot
@@ -763,7 +765,6 @@ namespace IVJ
             mousePos,
             CE::GestorCamaras::Get().getCamaraActiva().getView()
         );
-
         //std::cout << "[calculateProjectileVel] Mouse pos on world: " << mousePosOnWorld.x << " " << mousePosOnWorld.y << std::endl;
         // Calculate direction vector from projectile position to mouse position
         CE::Vector2D direction = CE::Vector2D{mousePosOnWorld.x, mousePosOnWorld.y} - projectilePos;
@@ -882,7 +883,7 @@ namespace IVJ
                     continue;
 
                 // If bullet overlaps an enemy's bounding box
-                if (SistemaColAABBMid(*bullet, *enemy, false))
+                if (SistemaColAABBMid(*bullet, *enemy, true))
                 {
                     // Mark enemy as hit so checkAndApplyDamage can process it
                     enemy->hasBeenHit = true;
@@ -900,7 +901,7 @@ namespace IVJ
                     {
                         player->getStats()->score += 1;  // award point
                         currentEnemiesInScene--;         // track remaining enemies
-
+                        // delete object reference from the enemies vector
                         // std::cout << "[SystemUpdateBulletsState] Enemy killed! Score: "
                         //           << player->getStats()->score
                         //           << ", Remaining enemies: " << currentEnemiesInScene << std::endl;
@@ -948,6 +949,35 @@ namespace IVJ
             if (!bulletRemoved)
                 ++it;
         }
+    }
+
+    // system that handles the player attack logic
+    // it resolves damage applying to entity if attacking with the knife
+    void SystemplayerAttack(bool isAttacking, std::shared_ptr<Entidad> &player, std::vector<std::shared_ptr<Entidad> > &bulletShotVector, std::shared_ptr<Entidad> &enemyToAttack)
+    {
+        // check if the player is reloading, if so exit
+        if (player->isReloading)
+            return;
+
+        // if player is attacking and has a weapon equipped that is not the knife and has ammo,
+        // bullets are generated
+        if (isAttacking
+            && player->getComponente<CE::IWeapon>()->type != CE::WEAPON_TYPE::KNIFE
+            && !player->weaponIsEmpty())
+        {
+            SystemGenerateBullets(isAttacking, player, bulletShotVector);
+            // decrease the ammo count in the player's weapon component
+            player->getComponente<CE::IWeapon>()->currentMagBullets--;
+            player->updateReloadStatus();
+        }
+        // resolve attack with knife in this scope
+        else if (isAttacking &&
+            player->getComponente<CE::IWeapon>()->type == CE::WEAPON_TYPE::KNIFE)
+        {
+            player->attackWithKnife(isAttacking, enemyToAttack);
+        }
+
+
     }
 }
 

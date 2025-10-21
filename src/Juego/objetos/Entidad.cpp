@@ -2,6 +2,8 @@
 #include "../../Motor/Componentes/IComponentes.hpp"
 #include <memory>
 
+#include "Juego/Sistemas/Sistemas.hpp"
+
 namespace IVJ
 {
     void Entidad::onUpdate(float dt) 
@@ -180,5 +182,95 @@ namespace IVJ
             }
         }
     }
+    // reset the maxSpeed attrbitue and reset the velocityBoostTimer
+    // after detecting the boost is no longer active
+    void Entidad::resetSpeed(float currentBoost)
+    {
+        getStats()->maxSpeed /= currentBoost;
+        isVelocityBoostActive = false;
+        velocityBoostTimer->frame_actual = 0;
+    }
 
+    // method to check if the current weapon has no ammo left (only for the player)
+    // returns true if the weapon is empty, false otherwise
+    // NOTE: this method assumes the entity has an IWeapon component
+    bool Entidad::weaponIsEmpty()
+    {
+        bool ans = false;
+        auto weaponComp = getComponente<CE::IWeapon>();
+
+        if (weaponComp->type == CE::WEAPON_TYPE::KNIFE)
+            ans = false; // knife has infinite uses
+        if (weaponComp->currentMagBullets <= 0 && weaponComp->type != CE::WEAPON_TYPE::KNIFE)
+            ans = true;
+
+        return ans;
+    }
+    // method thad handles the weapon ammo update and reloading process (only for the player)
+    // NOTE: this method assumes the entity has an IWeapon component
+    void Entidad::updateReloadStatus()
+    {
+        auto weaponComp = getComponente<CE::IWeapon>();
+        if (weaponComp->type == CE::WEAPON_TYPE::KNIFE)
+            return; // knife has infinite uses
+
+        if (isReloading)
+            return; // do not update ammo while reloading
+
+        // if weapon is empty and current weapon is not the knife, start reloading
+        if (weaponIsEmpty() && weaponComp->maxWeaponBullets > 0)
+        {
+            // set flag to true and set the timer max
+            isReloading = true;
+            reloadTimer->max_frame = static_cast<int>(weaponComp->reloadTime * 60); // assuming 60 frames
+        }
+        // if weapon is empty and there is no more ammo, switch to knife and set flag to true
+        if (weaponIsEmpty() && weaponComp->maxWeaponBullets <= 0)
+        {
+            weaponComp->type = CE::WEAPON_TYPE::KNIFE;
+            shouldChangeWeapon = true;
+        }
+    }
+    // in place handling of damage applying to enemy entity when the
+    // player attacks with knife, to be called on the Sistemas function that handles
+    // the player attack input
+    void Entidad::attackWithKnife(bool isAttacking, std::shared_ptr<Entidad> &enemyToAttack)
+    {
+        if (enemyToAttack == nullptr)
+            return;
+
+        if (isAttacking && enemyToAttack->getCollidedWithAnotherEntity())
+            enemyToAttack->checkAndApplyDamage(
+                getComponente<CE::IStats>()->damage);
+    }
+
+    // system that updates the weapon componentes fields during the reloading process (only for the player)
+    void Entidad::handleReload()
+    {
+        // if it's not reloading, exit
+        if (!isReloading) return;
+
+        // update the timer and then check if it has reached max so it
+        // completes the reload (value updates)
+        reloadTimer->frame_actual++;
+        if (hasTimerReachedMax(reloadTimer.get()))
+        {
+            // complete the reload process
+            auto weaponComp = getComponente<CE::IWeapon>();
+            int bulletsNeeded = weaponComp->magSize;
+            // if there are enough bullets to fill the magazine
+            if (weaponComp->maxWeaponBullets >= bulletsNeeded)
+            {
+                weaponComp->currentMagBullets = weaponComp->magSize;
+                weaponComp->maxWeaponBullets -= bulletsNeeded;
+            }
+            else // if not, fill with whatever is left
+            {
+                weaponComp->currentMagBullets = weaponComp->maxWeaponBullets;
+                weaponComp->maxWeaponBullets = 0;
+            }
+            isReloading = false;
+            resetTimer(reloadTimer.get()); // Reset the timer after reload completes
+        }
+    }
 }

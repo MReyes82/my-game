@@ -45,10 +45,12 @@ namespace IVJ
         std::vector<std::shared_ptr<Entidad>> lootItems; // vector of loot items in the scene
         std::vector<std::shared_ptr<Entidad>> bulletsShot; // vector of projectiles in the scene (soon to be implemented)
 
+        // round management
         signed int currentRound {0};
         int MAX_ROUND_ENEMIES = 9;
         int currentEnemiesInScene = 0;
-        bool shouldShowNewRoundText = true; // todo: implement a UIInfo class to show text on screen
+        bool shouldShowNewRoundText = true;
+        CE::ITimer newRoundTextTimer {0};
 
         // map and camera
         TileMap background[2];
@@ -57,11 +59,14 @@ namespace IVJ
         /*
          * POSITION TABLES FOR ENEMIES AND LOOT SPAWNING
          */
-        std::array<CE::Vector2D, 10> spawnPositions = { // fixed definition, could be loaded from a file later
-            CE::Vector2D{1000.f, 2100.f}, CE::Vector2D{1820.f, 1090.f}, CE::Vector2D{1040.f, 10.f},
-            CE::Vector2D{1620.f, 1090.f}, CE::Vector2D{180.f, 100.f}, CE::Vector2D{100.f, 120.f},
-            CE::Vector2D{120.f, 120.f}, CE::Vector2D{540.f, 920.f}, CE::Vector2D{960.f, 120.f},
-            CE::Vector2D{380.f, 820.f}
+        std::array<CE::Vector2D, 20> spawnPositions = { // fixed definition, could be loaded from a file later
+            CE::Vector2D{1000.f, 2100.f}, CE::Vector2D{1820.f, 1090.f}, CE::Vector2D{1040.f, 800.f},
+            CE::Vector2D{1620.f, 1090.f}, CE::Vector2D{500.f, 600.f}, CE::Vector2D{800.f, 1200.f},
+            CE::Vector2D{1200.f, 1500.f}, CE::Vector2D{540.f, 920.f}, CE::Vector2D{960.f, 1120.f},
+            CE::Vector2D{1380.f, 820.f}, CE::Vector2D{2200.f, 1800.f}, CE::Vector2D{2500.f, 2400.f},
+            CE::Vector2D{1800.f, 2600.f}, CE::Vector2D{700.f, 2200.f}, CE::Vector2D{1500.f, 1800.f},
+            CE::Vector2D{2000.f, 1200.f}, CE::Vector2D{2600.f, 1600.f}, CE::Vector2D{1100.f, 2500.f},
+            CE::Vector2D{2300.f, 800.f}, CE::Vector2D{1600.f, 400.f}
         };
 
         std::array<CE::Vector2D, 20> lootPositions = {
