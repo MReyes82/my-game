@@ -257,6 +257,7 @@ namespace IVJ
             newRoundTextTimer.frame_actual++;
         }
 
+        // ^^^^^ this snippet goes in a function SystemHandlePlayerAttack
         // Player damage animation is already checked in entity onUpdate method
         // Get control component
         const auto& control = player->getComponente<CE::IControl>();
@@ -280,6 +281,7 @@ namespace IVJ
             player->fireRateTimer->max_frame = static_cast<int>(weapon->fireRate * SECONDS_);
         }
         SystemAddEntitiesToPool(bulletsShot, objetos);
+        // ^^^^^
 
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
@@ -294,64 +296,102 @@ namespace IVJ
             newWeaponType, newUtilityType,
             lootPositions, player->shouldChangeWeapon,
             player->shouldChangeUtility, dt);
+        //SystemAddEntitiesToPool(lootItems, objetos);
+
+        // Store weapon type before UI update to detect changes
+        auto weaponBeforeUpdate = player->getComponente<CE::IWeapon>()->type;
 
         updatePlayerUI();
         sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
+
+        // Check if weapon changed after UI update, and force FSM refresh if it did
+        auto weaponAfterUpdate = player->getComponente<CE::IWeapon>()->type;
+        if (weaponBeforeUpdate != weaponAfterUpdate)
+        {
+            // Force FSM state re-entry to refresh sprite animation frames with new weapon
+            auto currentFSM = player->getComponente<IMaquinaEstado>()->fsm;
+            if (currentFSM)
+            {
+                currentFSM->onSalir(*player);
+                currentFSM->onEntrar(*player);
+            }
+        }
 
         player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
         player->inputFSM();
         player->handleReload();
 
+        // TODO: find out why only this checking works (resolves collition) but the other one does not
         for (auto& obj : objetos.getPool())
         {
             obj->onUpdate(dt);
+            auto entityTypeComp = obj->getComponente<CE::IEntityType>();
+            if (!entityTypeComp)
+                continue;
             if (obj != player)
             {
                 SistemaColAABBMid(*player, *obj, true);
             }
         }
 
+        // TODO: Add new system to handle the player attack with both guns and knife
+        // using the new logic. From now on the collision checking it's only for the enemy attack.
         for (auto& e : enemies)
         {
-            if (SistemaColAABBMid(*player, *e, true))
-            {
-                // Enemy collides with player
-                e->setCollidedWithAnotherEntity(true);
-
-                // Player attacks enemy with knife if attacking
-                SystemplayerAttack(control->atacar, player, bulletsShot, e);
-
-                // Set enemy attack timer
-                if (e->tieneComponente<CE::ITimer>())
+            { // this snippet goes in a function SystemHandlePlayerAttack
+                CE::Vector2D playerPos = player->getTransformada()->posicion;
+                CE::Vector2D enemyPos = e->getTransformada()->posicion;
+                CE::Vector2D diff = enemyPos.resta(playerPos);
+                float distance = diff.magnitud();
+                bool isPlayerCloseEnough = distance <= 35.f;
+                if (isPlayerCloseEnough)
                 {
-                    e->getComponente<CE::ITimer>()->max_frame = 60; // frames of attack animation
-                }
-
-                // Check if enemy finished attack animation
-                if (e->hasTimerReachedMax(e->getComponente<CE::ITimer>()))
-                {
-                    e->setCollidedWithAnotherEntity(false);
-
-                    // Mark player as hit and apply damage
-                    player->hasBeenHit = true;
-                    player->checkAndApplyDamage(e->getStats()->damage);
-
-                    /*// Apply knockback to player
-                    CE::Vector2D knockbackDir = player->getTransformada()->posicion;
-                    knockbackDir.resta(e->getTransformada()->posicion);
-                    knockbackDir.normalizacion();
-                    player->applyKnockback(knockbackDir, 200.f);*/
-
-                    // Reset enemy timer
-                    e->resetTimer(e->getComponente<CE::ITimer>());
+                    SystemplayerAttack(isAttacking, player, bulletsShot, e);
                 }
             }
-            else
-            {
-                e->setCollidedWithAnotherEntity(false);
-                if (e->tieneComponente<CE::ITimer>())
+
+            { // now this should go into another system that handles enemy attack on player
+                if (SistemaColAABBMid(*player, *e, true))
                 {
-                    e->getComponente<CE::ITimer>()->max_frame = -1;
+                    // Enemy collides with player
+                    e->setCollidedWithAnotherEntity(true);
+
+                    // Player attacks enemy with knife if attacking
+                    CE::printDebug("[second for loop] detected collision");
+                    SystemplayerAttack(control->atacar, player, bulletsShot, e);
+
+                    // Set enemy attack timer
+                    if (e->tieneComponente<CE::ITimer>())
+                    {
+                        e->getComponente<CE::ITimer>()->max_frame = 60; // frames of attack animation
+                    }
+
+                    // Check if enemy finished attack animation
+                    if (e->hasTimerReachedMax(e->getComponente<CE::ITimer>()))
+                    {
+                        //e->setCollidedWithAnotherEntity(true);
+
+                        // Mark player as hit and apply damage
+                        player->hasBeenHit = true;
+                        player->checkAndApplyDamage(e->getStats()->damage);
+
+                        // Apply knockback to player
+                        CE::Vector2D knockbackDir = player->getTransformada()->posicion;
+                        knockbackDir.resta(e->getTransformada()->posicion);
+                        knockbackDir.normalizacion();
+                        player->applyKnockback(knockbackDir, 200.f);
+
+                        // Reset enemy timer
+                        e->resetTimer(e->getComponente<CE::ITimer>());
+                    }
+                }
+                else
+                {
+                    e->setCollidedWithAnotherEntity(false);
+                    if (e->tieneComponente<CE::ITimer>())
+                    {
+                        e->getComponente<CE::ITimer>()->max_frame = -1;
+                    }
                 }
             }
         }

@@ -37,11 +37,10 @@ namespace IVJ
 #else
                 p->velocidad.escala(1.5f);
 #endif
-        if (c->atacar)
-            CE::printDebug("Atacando");
+        /*if (c->atacar)
+            //CE::printDebug("Atacando");
         if (c->interactuar)
-            CE::printDebug("Interanctuando");
-
+            //CE::printDebug("Interanctuando");*/
     }
     // for any object that belongs to a pool
     void SistemaMover(const std::vector<std::shared_ptr<CE::Objeto>>& entes, float dt)
@@ -506,7 +505,7 @@ namespace IVJ
             break;
 
         case CE::WEAPON_TYPE::REVOLVER:
-            stats->damage = 2;
+            stats->damage = 4;
             weapon->currentMagBullets = 6;
             weapon->magSize = 6;
             weapon->maxWeaponBullets = 36; // 6 mags
@@ -524,7 +523,7 @@ namespace IVJ
             break;
 
         case CE::WEAPON_TYPE::SMG:
-            stats->damage = 3;
+            stats->damage = 5;
             weapon->currentMagBullets = 25;
             weapon->magSize = 25;
             weapon->maxWeaponBullets = 100; // 4 mags
@@ -533,7 +532,7 @@ namespace IVJ
             break;
 
         case CE::WEAPON_TYPE::RIFLE:
-            stats->damage = 5;
+            stats->damage = 8;
             weapon->currentMagBullets = 30;
             weapon->magSize = 30;
             weapon->maxWeaponBullets = 90; // 3 mags
@@ -563,6 +562,7 @@ namespace IVJ
             {
                 if (SistemaColAABBMid(*player, *item, true))
                 {
+                    CE::printDebug("[SystemUpdateLootItems] Player picked up weapon loot");
                     // choose a new random weapon sprite and update the temp reference for the scene
                     const auto randWeaopn = SystemChooseRandWeapon();
                     tempRefWpn = randWeaopn;
@@ -592,6 +592,7 @@ namespace IVJ
             {
                 if (SistemaColAABBMid(*player, *item, true))
                 {
+                    CE::printDebug("[SystemUpdateLootItems] Player picked up utility loot");
                     // choose a new random utility sprite and update the temp reference for the scene
                     const auto randUtility = SystemChooseRandUtility();
                     tempRefUtil = randUtility;

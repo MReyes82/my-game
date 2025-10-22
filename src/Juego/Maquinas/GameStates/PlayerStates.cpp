@@ -9,7 +9,7 @@ namespace IVJ
         : FSM{}, shouldFlip{flip}
     {
         nombre = "IdleState";
-        CE::printDebug("" + nombre + "\n");
+        //CE::printDebug("" + nombre + "\n");
     }
 
     FSM *IdleState::onInputs(const CE::IControl &control, const Entidad& obj)
@@ -73,7 +73,7 @@ namespace IVJ
     void IdleState::onSalir(const Entidad &obj)
     {
         // No specific action on exit, just debug message
-        CE::printDebug("Exiting " + nombre + "\n");
+        //CE::printDebug("Exiting " + nombre + "\n");
     }
 
     void IdleState::onUpdate(const Entidad &obj, float dt)
@@ -107,7 +107,7 @@ namespace IVJ
         : FSM{}, shouldFlip{flip}
     {
         nombre = "MovingState";
-        CE::printDebug("" + nombre + "\n");
+        //CE::printDebug("" + nombre + "\n");
     }
 
     FSM* MovingState::onInputs(const CE::IControl &control, const Entidad& obj)
@@ -147,7 +147,7 @@ namespace IVJ
 
     void MovingState::onEntrar(const Entidad &obj)
     {
-        CE::printDebug("Entering " + nombre + "\n");
+        //CE::printDebug("Entering " + nombre + "\n");
         auto c_sprite = obj.getComponente<CE::ISprite>();
         sprite = &c_sprite->m_sprite;
         sprite_width = c_sprite->width;
@@ -174,7 +174,7 @@ namespace IVJ
 
     void MovingState::onSalir(const Entidad &obj)
     {
-        CE::printDebug("Exiting " + nombre + "\n");
+        //CE::printDebug("Exiting " + nombre + "\n");
     }
 
     void MovingState::onUpdate(const Entidad &obj, float dt)
@@ -207,7 +207,7 @@ namespace IVJ
         : FSM{}, shouldFlip{flip}
     {
         nombre = "AttackingStillState";
-        CE::printDebug("" + nombre + "\n");
+        //CE::printDebug("" + nombre + "\n");
     }
 
     FSM* AttackingStillState::onInputs(const CE::IControl &control, const Entidad& obj)
@@ -249,7 +249,7 @@ namespace IVJ
 
     void AttackingStillState::onEntrar(const Entidad &obj)
     {
-        CE::printDebug("Entering " + nombre + "\n");
+        //CE::printDebug("Entering " + nombre + "\n");
 
         auto c_sprite = obj.getComponente<CE::ISprite>();
         sprite = &c_sprite->m_sprite;
@@ -277,7 +277,7 @@ namespace IVJ
 
     void AttackingStillState::onSalir(const Entidad &obj)
     {
-        CE::printDebug("Exiting " + nombre + "\n");
+        //CE::printDebug("Exiting " + nombre + "\n");
     }
 
     void AttackingStillState::onUpdate(const Entidad &obj, float dt)
@@ -310,7 +310,7 @@ namespace IVJ
         : FSM{}, shouldFlip{flip}
     {
         nombre = "AttackingMovingState";
-        CE::printDebug("" + nombre + "\n");
+        //CE::printDebug("" + nombre + "\n");
     }
 
     void AttackingMovingState::flipSprite(const Entidad &obj)
@@ -357,7 +357,7 @@ namespace IVJ
 
     void AttackingMovingState::onEntrar(const Entidad &obj)
     {
-        CE::printDebug("Entering " + nombre + "\n");
+        //CE::printDebug("Entering " + nombre + "\n");
 
         auto c_sprite = obj.getComponente<CE::ISprite>();
         sprite = &c_sprite->m_sprite;
@@ -385,7 +385,7 @@ namespace IVJ
 
     void AttackingMovingState::onSalir(const Entidad &obj)
     {
-        CE::printDebug("Exiting " + nombre + "\n");
+        //CE::printDebug("Exiting " + nombre + "\n");
     }
 
     void AttackingMovingState::onUpdate(const Entidad &obj, float dt)

@@ -238,14 +238,24 @@ namespace IVJ
     // in place handling of damage applying to enemy entity when the
     // player attacks with knife, to be called on the Sistemas function that handles
     // the player attack input
+    // NOTE: Now this method assumes that the caller already checked
+    // that the player is close enough to the enemy to apply damage
     void Entidad::attackWithKnife(bool isAttacking, std::shared_ptr<Entidad> &enemyToAttack)
     {
+        /*
+         * new logic to handle knife attack damage application: check if the difference
+         * between the player and enemy positions is less than a certain range
+         * then it will apply the damage
+         */
         if (enemyToAttack == nullptr)
             return;
-
-        if (isAttacking && enemyToAttack->getCollidedWithAnotherEntity())
+        //if (isAttacking && isPlayerCloseEnough)
+        if (isAttacking)
+        {
+            enemyToAttack->hasBeenHit = true;
             enemyToAttack->checkAndApplyDamage(
-                getComponente<CE::IStats>()->damage);
+                getStats()->damage);
+        }
     }
 
     // system that updates the weapon componentes fields during the reloading process (only for the player)
