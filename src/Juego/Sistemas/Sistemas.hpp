@@ -22,7 +22,7 @@ namespace IVJ
     // -------------- MAIN SCENE SYSTEMS --------------
     //* enemies and entities
     [[maybe_unused]] std::string SystemChooseEnemyType(int num);
-    [[maybe_unused]] void SystemFollowPlayer(std::vector<std::shared_ptr<CE::Objeto>>& chasers, CE::Objeto& target, float dt);
+    [[maybe_unused]] void SystemFollowPlayer(std::vector<std::shared_ptr<Entidad>>& chasers, std::shared_ptr<Entidad>& target, float dt);
     [[maybe_unused]] std::vector<std::shared_ptr<Entidad>>& SystemGetEntityTypeVector(std::vector<std::shared_ptr<CE::Objeto>>& entities, CE::ENTITY_TYPE entityType);
     [[maybe_unused]] void SystemCheckLimits(std::vector<std::shared_ptr<CE::Objeto>>& entes, unsigned int dimensionX, unsigned int dimensionY);
     // loot methods

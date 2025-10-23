@@ -118,19 +118,20 @@ namespace  IVJ
         reloadingText.setPosition({centerX - 40.f, centerY});
         roundText.setPosition({centerX - 120.f, centerY - 60.f});
 
+        constexpr int offset = 8;
         weaponCageSprite.m_sprite.setPosition({centerX  + 147, centerY - 3});
         // Center the weapon sprite within the cage
         const auto boxBounds = weaponCageSprite.m_sprite.getGlobalBounds();
         const auto weaponBounds = weaponSprite.m_sprite.getGlobalBounds();
         const float weaponCenterX = boxBounds.position.x + (boxBounds.size.x / 2) - (weaponBounds.size.x / 2);
         const float weaponCenterY = boxBounds.position.y + (boxBounds.size.y / 2) - (weaponBounds.size.y / 2);
-        weaponSprite.m_sprite.setPosition({weaponCenterX, weaponCenterY});
+        weaponSprite.m_sprite.setPosition({weaponCenterX + offset, weaponCenterY + offset});
 
         // Ammo sprite relative to center
-        ammoSprite.m_sprite.setPosition({centerX + 120, centerY + 23});
+        ammoSprite.m_sprite.setPosition({centerX + 120, centerY + 20});
         if (displayElements.getWeapon() != CE::WEAPON_TYPE::KNIFE)
         {
-            ammoText.setPosition({centerX + 130, centerY + 16});
+            ammoText.setPosition({centerX + 130, centerY + 8});
             ammoText.setString(std::to_string(displayElements.getCurrentAmmo()) + " / " +
                                std::to_string(displayElements.getMaxAmmo()));
         }
@@ -140,13 +141,13 @@ namespace  IVJ
             ammoText.setString("");
         }
 
-        utilityCageSprite.m_sprite.setPosition({centerX + 147, centerY + 30});
+        utilityCageSprite.m_sprite.setPosition({centerX + 147, centerY + 45});
         // Center the utility sprite within the cage
         const auto utilityBoxBounds = utilityCageSprite.m_sprite.getGlobalBounds();
         const auto utilityBounds = utilitySprite.m_sprite.getGlobalBounds();
         const float utilityCenterX = utilityBoxBounds.position.x + (utilityBoxBounds.size.x / 2) - (utilityBounds.size.x / 2);
         const float utilityCenterY = utilityBoxBounds.position.y + (utilityBoxBounds.size.y / 2) - (utilityBounds.size.y / 2);
-        utilitySprite.m_sprite.setPosition({utilityCenterX, utilityCenterY});
+        utilitySprite.m_sprite.setPosition({utilityCenterX + offset, utilityCenterY + offset});
 
         // Hearts positioned at bottom-left relative to center
         setHeartPositions(centerX - 180.f, centerY - 120.f);

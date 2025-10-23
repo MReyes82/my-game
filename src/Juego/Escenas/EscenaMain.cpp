@@ -72,7 +72,6 @@ namespace IVJ
         registrarBotonesMouse(sf::Mouse::Button::Left, "atacar");
         registrarBotonesMouse(sf::Mouse::Button::Right, "interactuar");
         registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
-        //registrarBotones(sf::Keyboard::Scancode::K, "interactuar");
     }
 
     void EscenaMain::summonEnemies(const int maxEnemies)
@@ -108,6 +107,7 @@ namespace IVJ
             fsm_init->onEntrar(*enemy);
 
             enemy->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+            enemy->addComponente(std::make_shared<CE::ITimer>(SECONDS_ * 1)); // default timer, used for the attacking animation timing
             enemy->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
 
             objetos.agregarPool(enemy);
@@ -123,9 +123,7 @@ namespace IVJ
             currentEnemiesInScene = MAX_ROUND_ENEMIES;
             summonEnemies(currentEnemiesInScene);
             CE::printDebug("New round: " + std::to_string(currentRound));
-            shouldShowNewRoundText = true; // todo: implement a UIInfo class to show
-            // update player reference to the end of the pool
-            //movePlayerPointer();
+            shouldShowNewRoundText = true;
         }
     }
 
@@ -242,7 +240,7 @@ namespace IVJ
     void EscenaMain::onFinal()
     {}
 
-    void EscenaMain::processPLayerCollisions(float dt)
+    void EscenaMain::processPlayerCollisions(float dt)
     {
         for (auto& obj : objetos.getPool())
         {
@@ -259,12 +257,24 @@ namespace IVJ
 
     void EscenaMain::processPlayerKnifeAttack(std::vector<std::shared_ptr<Entidad>> enemies)
     {
-        if (player->getComponente<CE::IWeapon>()->type == CE::WEAPON_TYPE::KNIFE)
+        const bool isPlayerAttacking = player->getComponente<CE::IControl>()->atacar;
+        if (player->getComponente<CE::IWeapon>()->type == CE::WEAPON_TYPE::KNIFE
+            && isPlayerAttacking)
         {
             // start loop to check knife collision with enemies
             for (auto& e : enemies)
+                // check if the player already landed one hit, so we don't hit multiple enemies in one attack
                 if (SystemPlayerMeleeAttack(player, e))
+                {
+                    // if the player killed the enemy after the attack, update the score and enemy count
+                    if (!e->estaVivo())
+                    {
+                        currentEnemiesInScene--;
+                        player->getStats()->score += 1; // add score for enemy killed
+                    }
                     break;
+                }
+
         }
     }
 
@@ -305,6 +315,7 @@ namespace IVJ
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
+        SystemFollowPlayer(enemies, player, dt);
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
         checkRoundEnd();
@@ -313,7 +324,6 @@ namespace IVJ
             newWeaponType, newUtilityType,
             lootPositions, player->shouldChangeWeapon,
             player->shouldChangeUtility, dt);
-        //SystemAddEntitiesToPool(lootItems, objetos);
 
         // Store weapon type before UI update to detect changes
         auto weaponBeforeUpdate = player->getComponente<CE::IWeapon>()->type;
@@ -325,7 +335,7 @@ namespace IVJ
         player->inputFSM();
         player->handleReload();
         // handle the player collisions with other objects in the pool and update every entity state
-        processPLayerCollisions(dt);
+        processPlayerCollisions(dt);
         processPlayerKnifeAttack(enemies);
         // Handle enemy attacks on the player via system
         SystemHandleEnemyAttacks(player, enemies);
@@ -444,7 +454,7 @@ namespace IVJ
 
     void EscenaMain::onRender()
     {
-        CE::Render::Get().GetVentana().setMouseCursorVisible(false);
+        CE::Render::Get().GetVentana().setMouseCursorVisible(true);
         for (auto& b : background)
             CE::Render::Get().AddToDraw(b);
 

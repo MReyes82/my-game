@@ -47,11 +47,14 @@ namespace IVJ
     {
         for(auto& ente : entes)
         {
+            // get component and check if it's null (meaning if it doesn't have a type assigned)
+            auto entityType = ente->getComponente<CE::IEntityType>();
+            if (!entityType)
+                continue;
             //todo ente tiene ITransform por lo que no requiere verificación
             auto trans = ente->getTransformada();
-
             // Check if entity has control component (like player)
-            if (ente->tieneComponente<CE::IControl>())
+            if (ente->tieneComponente<CE::IControl>() && entityType->type == CE::ENTITY_TYPE::PLAYER)
             {
                 // For controlled entities, velocity gets reset each frame by SistemaControl
                 // So we can directly scale and modify it
@@ -237,74 +240,65 @@ namespace IVJ
     }
 
     // system for enemies to follow the player
-    // TODO: improve the following logic, currently using old version
-    void SystemFollowPlayer(std::vector<std::shared_ptr<CE::Objeto>>& chasers, CE::Objeto &target, float dt)
+    void SystemFollowPlayer(std::vector<std::shared_ptr<Entidad>>& chasers, std::shared_ptr<Entidad>&target, float dt)
     {
+        // TODO: improve the following logic, currently using old version
         // TODO: implement a following logic where it calculates how much it has to move based on the distance to the player
         // (calculating the vector2D)
         // only changing the velocidad->x and y.
-    }
-    /*constexpr float followDistance = 12.f;
-    constexpr float separationDistance = 50.f;
-    const float separationStrength = 1.5f;
-    const float seekWeight = 1.0f;
-    const float separationWeight = 1.5f;
-    const float cohesionWeight = 0.0f;
+        constexpr float followDistance = 12.f;
+        constexpr float separationDistance = 50.f;
+        const float separationStrength = 1.5f;
+        const float seekWeight = 1.0f;
+        const float separationWeight = 1.5f;
+        const float cohesionWeight = 0.0f;
 
-    for (auto& chaser : chasers)
-    {
-        if (!chaser->tieneComponente<CE::IEntityType>())
-            continue;
-
-        if (chaser->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
-            continue;
-
-        auto& chaserTransform = *chaser->getTransformada();
-        auto& targetTransform = *target.getTransformada();
-        CE::Vector2D directionToTarget = targetTransform.posicion - chaserTransform.posicion;
-        float distanceToTarget = directionToTarget.magnitud();
-        const float speed = chaser->getStats()->maxSpeed;
-
-        CE::Vector2D seekVelocity{0.f, 0.f};
-        if (distanceToTarget < followDistance)
+        for (auto& chaser : chasers)
         {
-            seekVelocity = directionToTarget.normalizacion().escala(speed);
-        }
-        else
-        {
-            seekVelocity = CE::Vector2D{0.f, 0.f}; // stop moving within follow distance
-        }
+            auto& chaserTransform = *chaser->getTransformada();
+            auto& targetTransform = *target->getTransformada();
+            CE::Vector2D directionToTarget = targetTransform.posicion - chaserTransform.posicion;
+            float distanceToTarget = directionToTarget.magnitud();
+            const float speed = chaser->getStats()->maxSpeed;
 
-        CE::Vector2D separationForce{0.f, 0.f};
-        for (const auto& otherChaser : chasers)
-        {
-            if (!otherChaser->tieneComponente<CE::IEntityType>())
-                continue;
-
-            if (otherChaser->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
-                continue;
-
-            if (chaser != otherChaser)
+            CE::Vector2D seekVelocity{0.f, 0.f};
+            if (distanceToTarget > followDistance)
             {
-                auto& otherTransform = *otherChaser->getTransformada();
-                CE::Vector2D diff = chaserTransform.posicion - otherTransform.posicion;
-                float distance = diff.magnitud();
-                if (distance < separationDistance && distance > 0) // avoid division by zero
-                    separationForce += diff.normalizacion().escala((separationDistance - distance) / separationDistance);
+                seekVelocity = directionToTarget.normalizacion().escala(speed);
             }
-        }
+            else
+            {
+                seekVelocity = CE::Vector2D{0.f, 0.f}; // stop moving within follow distance
+            }
 
-        separationForce = separationForce.escala(separationStrength);
-        CE::Vector2D cohesionForce{0.f, 0.f}; // not implemented yet
-        CE::Vector2D combinedForce = {seekVelocity.escala(seekWeight) + separationForce.escala(separationWeight) + cohesionForce.escala(cohesionWeight)};
-        CE::Vector2D finalVelocity = combinedForce.normalizacion().escala(speed);
-        chaserTransform.velocidad = lerp(chaserTransform.posicion, finalVelocity, 0.5f * dt);
-        // check if the enemy arrived to the player
-        // cast to Entidad to access getCollidedWithAnotherEntity method
-        auto& chaserCast = dynamic_cast<Entidad&>(*chaser);
-        if (chaserCast.getCollidedWithAnotherEntity())
-            chaserTransform.velocidad = {0.f, 0.f};
-    }*/
+            CE::Vector2D separationForce{0.f, 0.f};
+            for (const auto& otherChaser : chasers)
+            {
+                if (chaser != otherChaser)
+                {
+                    auto& otherTransform = *otherChaser->getTransformada();
+                    CE::Vector2D diff = chaserTransform.posicion - otherTransform.posicion;
+                    float distance = diff.magnitud();
+                    if (distance < separationDistance && distance > 0) // avoid division by zero
+                        separationForce += diff.normalizacion().escala((separationDistance - distance) / separationDistance);
+                }
+            }
+
+            separationForce = separationForce.escala(separationStrength);
+            CE::Vector2D cohesionForce{0.f, 0.f}; // not implemented yet
+            CE::Vector2D combinedForce = {seekVelocity.escala(seekWeight) + separationForce.escala(separationWeight) + cohesionForce.escala(cohesionWeight)};
+            CE::Vector2D finalVelocity = combinedForce.normalizacion().escala(speed);
+            chaserTransform.velocidad = lerp(chaserTransform.velocidad, finalVelocity, 0.5f * dt);
+            // check if the enemy arrived to the player
+            if (chaser->getCollidedWithAnotherEntity())
+            {
+                chaserTransform.velocidad = {0.f, 0.f};
+            }
+            // Set the facing direction based on velocity
+            const bool facingRight = chaserTransform.velocidad.x > 0;
+            chaser->setIsEntityFacingRight(facingRight);
+        }
+    }
 
     // System for choosing enemy type based on a rand number (0 <= NUM <= 3)
     std::string SystemChooseEnemyType(const int num)
@@ -975,6 +969,7 @@ namespace IVJ
 
         return didHitEnemy;
     }
+
     // System that handles the player shooting logic
     // the function assumes it's called after checking the player's
     // current weapon is different from the knife
@@ -1032,14 +1027,15 @@ namespace IVJ
     {
         for (auto& e : enemies)
         {
+            //e->inputFSM(); TODO: find why it SIGSEGV's when checking entity transform on the FSM scope
             if (SistemaColAABBMid(*player, *e, true))
             {
+                // set flag to true to update the state machine
                 e->setCollidedWithAnotherEntity(true);
-                if (e->tieneComponente<CE::ITimer>())
-                    e->getComponente<CE::ITimer>()->max_frame = 60;
-
+                // check if the timer has reached max, if so; apply damage to player
                 if (e->hasTimerReachedMax(e->getComponente<CE::ITimer>()))
                 {
+                    e->finishedAttackAnimation = true;
                     player->hasBeenHit = true;
                     player->checkAndApplyDamage(e->getStats()->damage);
                     CE::Vector2D knockbackDir = player->getTransformada()->posicion;
@@ -1051,9 +1047,10 @@ namespace IVJ
             }
             else
             {
+                // if the enemy is not colliding (anymore) with the player, reset attack flags and timer
+                e->finishedAttackAnimation = false;
                 e->setCollidedWithAnotherEntity(false);
-                if (e->tieneComponente<CE::ITimer>())
-                    e->getComponente<CE::ITimer>()->max_frame = -1;
+                e->resetTimer(e->getComponente<CE::ITimer>());
             }
         }
     }

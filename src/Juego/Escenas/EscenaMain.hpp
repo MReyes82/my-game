@@ -20,7 +20,7 @@ namespace IVJ
         void onUpdate(float deltaTime) override;
         void onRender() override;
         void onFinal() override;
-        void processPLayerCollisions(float dt);
+        void processPlayerCollisions(float dt);
         void processPlayerKnifeAttack(std::vector<std::shared_ptr<Entidad>> enemies);
         void checkAndRefreshFSMOnWeaponChange(CE::WEAPON_TYPE weaponBeforeUpdate);
         void onInputs(const CE::Botones& accion) override;

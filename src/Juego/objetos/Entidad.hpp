@@ -51,6 +51,7 @@ namespace IVJ
             bool shouldChangeUtility = false; // flag to indicate if the player utility item needs to be changed (player only)
             bool isVelocityBoostActive = false; // flag to indicate if the velocity boost effect is active (player only)
             bool isReloading = false; // flag to indicate if the weapon is reloading (player only)
+            bool finishedAttackAnimation = false; // flag to indicate if the attack animation has finished (enemies only)
 
     private:
             bool isEntityFacingRight = false;
