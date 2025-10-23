@@ -72,6 +72,7 @@ namespace IVJ
         registrarBotonesMouse(sf::Mouse::Button::Left, "atacar");
         registrarBotonesMouse(sf::Mouse::Button::Right, "interactuar");
         registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
+        //registrarBotones(sf::Keyboard::Scancode::K, "interactuar");
     }
 
     void EscenaMain::summonEnemies(const int maxEnemies)
@@ -241,6 +242,48 @@ namespace IVJ
     void EscenaMain::onFinal()
     {}
 
+    void EscenaMain::processPLayerCollisions(float dt)
+    {
+        for (auto& obj : objetos.getPool())
+        {
+            obj->onUpdate(dt);
+            auto entityTypeComp = obj->getComponente<CE::IEntityType>();
+            if (!entityTypeComp)
+                continue;
+            if (obj != player)
+            {
+                SistemaColAABBMid(*player, *obj, true);
+            }
+        }
+    }
+
+    void EscenaMain::processPlayerKnifeAttack(std::vector<std::shared_ptr<Entidad>> enemies)
+    {
+        if (player->getComponente<CE::IWeapon>()->type == CE::WEAPON_TYPE::KNIFE)
+        {
+            // start loop to check knife collision with enemies
+            for (auto& e : enemies)
+                if (SystemPlayerMeleeAttack(player, e))
+                    break;
+        }
+    }
+
+    void EscenaMain::checkAndRefreshFSMOnWeaponChange(CE::WEAPON_TYPE weaponBeforeUpdate)
+    {
+        // Check if weapon changed after UI update, and force FSM refresh if it did
+        auto weaponAfterUpdate = player->getComponente<CE::IWeapon>()->type;
+        if (weaponBeforeUpdate != weaponAfterUpdate)
+        {
+            // Force FSM state re-entry to refresh sprite animation frames with new weapon
+            auto currentFSM = player->getComponente<IMaquinaEstado>()->fsm;
+            if (currentFSM)
+            {
+                currentFSM->onSalir(*player);
+                currentFSM->onEntrar(*player);
+            }
+        }
+    }
+
     void EscenaMain::onUpdate(float dt)
     {
         // First check if the player is alive
@@ -257,39 +300,13 @@ namespace IVJ
             newRoundTextTimer.frame_actual++;
         }
 
-        // ^^^^^ this snippet goes in a function SystemHandlePlayerAttack
-        // Player damage animation is already checked in entity onUpdate method
-        // Get control component
-        const auto& control = player->getComponente<CE::IControl>();
-        bool isAttacking = control->atacar;
-        const auto& weapon = player->getComponente<CE::IWeapon>();
-        // Handle fire rate for shooting weapons
-        if (isAttacking)
-        {
-            player->fireRateTimer->frame_actual++;
-
-            if (player->hasTimerReachedMax(player->fireRateTimer.get()))
-            {
-                std::shared_ptr<Entidad> noEnemy = nullptr; // Can't pass nullptr directly to non-const reference
-                SystemplayerAttack(true, player, bulletsShot, noEnemy);
-                player->resetTimer(player->fireRateTimer.get());
-            }
-        }
-        else
-        {
-            // Reset the timer when attack button is releasedsd
-            player->fireRateTimer->max_frame = static_cast<int>(weapon->fireRate * SECONDS_);
-        }
-        SystemAddEntitiesToPool(bulletsShot, objetos);
-        // ^^^^^
-
+        // Replace shooting logic with system call
+        SystemProcessPlayerShooting(player, bulletsShot, objetos);
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
-
         checkRoundEnd();
         movePlayerPointer();
         SystemUpdateLootItems(lootItems, player,
@@ -300,101 +317,18 @@ namespace IVJ
 
         // Store weapon type before UI update to detect changes
         auto weaponBeforeUpdate = player->getComponente<CE::IWeapon>()->type;
-
         updatePlayerUI();
         sceneOverlay->Update(CE::Render::Get(), UIsceneOverlayElements);
-
-        // Check if weapon changed after UI update, and force FSM refresh if it did
-        auto weaponAfterUpdate = player->getComponente<CE::IWeapon>()->type;
-        if (weaponBeforeUpdate != weaponAfterUpdate)
-        {
-            // Force FSM state re-entry to refresh sprite animation frames with new weapon
-            auto currentFSM = player->getComponente<IMaquinaEstado>()->fsm;
-            if (currentFSM)
-            {
-                currentFSM->onSalir(*player);
-                currentFSM->onEntrar(*player);
-            }
-        }
+        checkAndRefreshFSMOnWeaponChange(weaponBeforeUpdate);
 
         player->setIsEntityFacingRight(player->checkPlayerFacingRight(CE::Render::Get().GetVentana()));
         player->inputFSM();
         player->handleReload();
-
-        // TODO: find out why only this checking works (resolves collition) but the other one does not
-        for (auto& obj : objetos.getPool())
-        {
-            obj->onUpdate(dt);
-            auto entityTypeComp = obj->getComponente<CE::IEntityType>();
-            if (!entityTypeComp)
-                continue;
-            if (obj != player)
-            {
-                SistemaColAABBMid(*player, *obj, true);
-            }
-        }
-
-        // TODO: Add new system to handle the player attack with both guns and knife
-        // using the new logic. From now on the collision checking it's only for the enemy attack.
-        for (auto& e : enemies)
-        {
-            { // this snippet goes in a function SystemHandlePlayerAttack
-                CE::Vector2D playerPos = player->getTransformada()->posicion;
-                CE::Vector2D enemyPos = e->getTransformada()->posicion;
-                CE::Vector2D diff = enemyPos.resta(playerPos);
-                float distance = diff.magnitud();
-                bool isPlayerCloseEnough = distance <= 35.f;
-                if (isPlayerCloseEnough)
-                {
-                    SystemplayerAttack(isAttacking, player, bulletsShot, e);
-                }
-            }
-
-            { // now this should go into another system that handles enemy attack on player
-                if (SistemaColAABBMid(*player, *e, true))
-                {
-                    // Enemy collides with player
-                    e->setCollidedWithAnotherEntity(true);
-
-                    // Player attacks enemy with knife if attacking
-                    CE::printDebug("[second for loop] detected collision");
-                    SystemplayerAttack(control->atacar, player, bulletsShot, e);
-
-                    // Set enemy attack timer
-                    if (e->tieneComponente<CE::ITimer>())
-                    {
-                        e->getComponente<CE::ITimer>()->max_frame = 60; // frames of attack animation
-                    }
-
-                    // Check if enemy finished attack animation
-                    if (e->hasTimerReachedMax(e->getComponente<CE::ITimer>()))
-                    {
-                        //e->setCollidedWithAnotherEntity(true);
-
-                        // Mark player as hit and apply damage
-                        player->hasBeenHit = true;
-                        player->checkAndApplyDamage(e->getStats()->damage);
-
-                        // Apply knockback to player
-                        CE::Vector2D knockbackDir = player->getTransformada()->posicion;
-                        knockbackDir.resta(e->getTransformada()->posicion);
-                        knockbackDir.normalizacion();
-                        player->applyKnockback(knockbackDir, 200.f);
-
-                        // Reset enemy timer
-                        e->resetTimer(e->getComponente<CE::ITimer>());
-                    }
-                }
-                else
-                {
-                    e->setCollidedWithAnotherEntity(false);
-                    if (e->tieneComponente<CE::ITimer>())
-                    {
-                        e->getComponente<CE::ITimer>()->max_frame = -1;
-                    }
-                }
-            }
-        }
+        // handle the player collisions with other objects in the pool and update every entity state
+        processPLayerCollisions(dt);
+        processPlayerKnifeAttack(enemies);
+        // Handle enemy attacks on the player via system
+        SystemHandleEnemyAttacks(player, enemies);
 
         // Clean up dead objects from pool
         objetos.borrarPool();

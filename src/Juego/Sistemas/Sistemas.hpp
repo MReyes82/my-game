@@ -42,15 +42,32 @@ namespace IVJ
     [[maybe_unused]] void SystemCreateLootItems(std::vector<std::shared_ptr<Entidad>>& lootItems , const std::array<CE::Vector2D, 20>& positionsArr, int maxFrames, int maxLootItems);
     [[maybe_unused]] void SystemConsumeUtility(std::shared_ptr<Entidad>& player, InfoUI& sceneOverlayElements);
 
-    // -------------- BULLET MECHANISM SYSTEMS --------------
+    // -------------- PLAYER ATTACKING MECHANISM SYSTEMS --------------
     [[maybe_unused]] CE::Vector2D calculateProjectileVel(const sf::Vector2i& mousePos, const CE::Vector2D& projectilePos, float speed);
     [[maybe_unused]] void SystemGenerateBullets(bool isAttacking, std::shared_ptr<Entidad>& player, std::vector<std::shared_ptr<Entidad>>& bulletsShot);
     [[maybe_unused]] void SystemAddEntitiesToPool(std::vector<std::shared_ptr<Entidad>>& entities, CE::Pool& pool);
+    // Processes player shooting input, handles fire rate and bullet generation, then adds bullets to the pool
+    [[maybe_unused]] void SystemProcessPlayerShooting(
+        std::shared_ptr<Entidad>& player,
+        std::vector<std::shared_ptr<Entidad>>& bulletsShot,
+        CE::Pool& pool);
+
     [[maybe_unused]] void SystemUpdateBulletsState(std::vector<std::shared_ptr<Entidad>>& bulletsShot,
         std::vector<std::shared_ptr<Entidad>>& enemies,
         std::shared_ptr<Entidad>& player,
         CE::Pool& collisionPool,
         int& currentEnemiesInScene,
         float dt);
-    [[maybe_unused]] void SystemplayerAttack(bool isAttacking, std::shared_ptr<Entidad>& player, std::vector<std::shared_ptr<Entidad>>& bulletShotVector, std::shared_ptr<Entidad>& enemyToAttack);
+    [[maybe_unused]] bool SystemPlayerMeleeAttack(std::shared_ptr<Entidad>& player,  std::shared_ptr<Entidad>& enemyToAttack);
+    [[maybe_unused]] void SystemPlayerShoot(std::shared_ptr<Entidad>& player, std::vector<std::shared_ptr<Entidad>>& bulletShotVector);
+    [[maybe_unused]] void SystemHandlePlayerAttack(
+        std::shared_ptr<Entidad>& player,
+        std::vector<std::shared_ptr<Entidad>>& bulletsShot,
+        CE::Pool& pool,
+        std::vector<std::shared_ptr<Entidad>>& enemies,
+        int& currentEnemiesInScene);
+    // Handles enemies colliding with and attacking the player
+    [[maybe_unused]] void SystemHandleEnemyAttacks(
+        std::shared_ptr<Entidad>& player,
+        std::vector<std::shared_ptr<Entidad>>& enemies);
 }

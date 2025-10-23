@@ -825,6 +825,7 @@ namespace IVJ
 
     // System to add entities from a vector to the main Pool
     // This transfers ownership to share it with the Pool as well
+    // TODO: add a checking mechanism to avoid adding duplicates
     void SystemAddEntitiesToPool(std::vector<std::shared_ptr<Entidad>>& entities, CE::Pool& pool)
     {
         if (entities.empty())
@@ -946,31 +947,114 @@ namespace IVJ
         }
     }
 
-    // system that handles the player attack logic
-    // it resolves damage applying to entity if attacking with the knife
-    void SystemplayerAttack(bool isAttacking, std::shared_ptr<Entidad> &player, std::vector<std::shared_ptr<Entidad> > &bulletShotVector, std::shared_ptr<Entidad> &enemyToAttack)
+    // system that handles the player melee attack logic
+    // returns true if an enemy was hit
+    // the function assumes it's called after checking the player's current
+    // weapon is the knife
+    bool SystemPlayerMeleeAttack(std::shared_ptr<Entidad>& player,  std::shared_ptr<Entidad>& enemyToAttack)
+    {
+        // flag to return if the enemy passed as parameter was hit
+        // so the loop on the caller scope can break
+        bool didHitEnemy = false;
+        if (enemyToAttack == nullptr)
+            return didHitEnemy;
+
+        const CE::Vector2D playerPos = player->getTransformada()->posicion;
+        CE::Vector2D enemyPos = enemyToAttack->getTransformada()->posicion;
+
+        const CE::Vector2D diff = enemyPos.resta(playerPos);
+        const float distance = diff.magnitud();
+        // if the player is close enough to attack the enemy
+        if (distance <= 35.f)
+        {
+            player->attackWithKnife(true, enemyToAttack);
+            didHitEnemy = true;
+        }
+        else
+            didHitEnemy = false;
+
+        return didHitEnemy;
+    }
+    // System that handles the player shooting logic
+    // the function assumes it's called after checking the player's
+    // current weapon is different from the knife
+    void SystemPlayerShoot(std::shared_ptr<Entidad>& player, std::vector<std::shared_ptr<Entidad>>& bulletShotVector)
     {
         // check if the player is reloading, if so exit
         if (player->isReloading)
             return;
 
-        // if player is attacking and has a weapon equipped that is not the knife and has ammo,
-        // bullets are generated
-        if (isAttacking
-            && player->getComponente<CE::IWeapon>()->type != CE::WEAPON_TYPE::KNIFE
-            && !player->weaponIsEmpty())
+        auto playerCtrl = player->getComponente<CE::IControl>();
+        // if player is attacking and has ammo, bullets are generated
+        if (playerCtrl->atacar && !player->weaponIsEmpty())
         {
-            SystemGenerateBullets(isAttacking, player, bulletShotVector);
+            SystemGenerateBullets(playerCtrl->atacar, player, bulletShotVector);
             // decrease the ammo count in the player's weapon component
             player->getComponente<CE::IWeapon>()->currentMagBullets--;
             player->updateReloadStatus();
         }
-        // resolve attack with knife in this scope
-        else if (isAttacking &&
-            player->getComponente<CE::IWeapon>()->type == CE::WEAPON_TYPE::KNIFE)
+    }
+
+    // Processes player shooting input, handles fire rate for ranged weapons, generates bullets, and adds them to the pool
+    void SystemProcessPlayerShooting(
+        std::shared_ptr<Entidad>& player,
+        std::vector<std::shared_ptr<Entidad>>& bulletsShot,
+        CE::Pool& pool)
+    {
+        // Constants for frame conversion
+        constexpr int FRAMES_PER_SECOND = 60;
+        // set component variables for easier access
+        const auto& control = player->getComponente<CE::IControl>();
+        bool isAttacking = control->atacar;
+        const auto& weapon = player->getComponente<CE::IWeapon>();
+
+        if (isAttacking && weapon->type != CE::WEAPON_TYPE::KNIFE)
         {
-            player->attackWithKnife(isAttacking, enemyToAttack);
+            player->fireRateTimer->frame_actual++;
+            if (player->hasTimerReachedMax(player->fireRateTimer.get()))
+            {
+                SystemPlayerShoot(player, bulletsShot);
+                player->resetTimer(player->fireRateTimer.get());
+            }
+            SystemAddEntitiesToPool(bulletsShot, pool);
+        }
+        else
+        {
+            // Reset the timer when attack button is released
+            player->fireRateTimer->max_frame = static_cast<int>(weapon->fireRate * FRAMES_PER_SECOND);
+        }
+    }
+
+    // Handles enemies colliding with and attacking the player
+    void SystemHandleEnemyAttacks(
+        std::shared_ptr<Entidad>& player,
+        std::vector<std::shared_ptr<Entidad>>& enemies)
+    {
+        for (auto& e : enemies)
+        {
+            if (SistemaColAABBMid(*player, *e, true))
+            {
+                e->setCollidedWithAnotherEntity(true);
+                if (e->tieneComponente<CE::ITimer>())
+                    e->getComponente<CE::ITimer>()->max_frame = 60;
+
+                if (e->hasTimerReachedMax(e->getComponente<CE::ITimer>()))
+                {
+                    player->hasBeenHit = true;
+                    player->checkAndApplyDamage(e->getStats()->damage);
+                    CE::Vector2D knockbackDir = player->getTransformada()->posicion;
+                    knockbackDir.resta(e->getTransformada()->posicion);
+                    knockbackDir.normalizacion();
+                    player->applyKnockback(knockbackDir, 200.f);
+                    e->resetTimer(e->getComponente<CE::ITimer>());
+                }
+            }
+            else
+            {
+                e->setCollidedWithAnotherEntity(false);
+                if (e->tieneComponente<CE::ITimer>())
+                    e->getComponente<CE::ITimer>()->max_frame = -1;
+            }
         }
     }
 }
-
