@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <Juego/Maquinas/GameStates/EnemyStates.hpp>
 #include <Juego/Maquinas/GameStates/PlayerStates.hpp>
-
-#include "Juego/Maquinas/JugadorFSM/IdleFSM.hpp"
 #include "Juego/objetos/Entidad.hpp"
 #include "Juego/Sistemas/Sistemas.hpp"
 #include "Motor/Camaras/CamarasGestor.hpp"
@@ -12,6 +10,7 @@
 #include "Motor/Primitivos/GestorEscenas.hpp"
 #include "Motor/Render/Render.hpp"
 #include "Overlay/Overlay.hpp"
+#include "Juego/Sistemas/Boss/SistemasBosses.h"
 
 #define SECONDS_ 60
 #define MINUTES_ 3600
@@ -175,6 +174,8 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirage(test).png",
+                                                      CE::Vector2D{0, 0}, CE::Vector2D{64.f, 64.f});
 
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
@@ -232,6 +233,10 @@ namespace IVJ
         //UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
         newRoundTextTimer.max_frame = 5 * SECONDS_;
+
+        auto boss = std::make_shared<Entidad>();
+        MirageInit(boss, spawnPositions);
+        objetos.agregarPool(boss);
 
         newInstance = false;
         gameState = true;
@@ -315,7 +320,7 @@ namespace IVJ
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        SystemFollowPlayer(enemies, player, dt);
+        //SystemFollowPlayer(enemies, player, dt);
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
         checkRoundEnd();
