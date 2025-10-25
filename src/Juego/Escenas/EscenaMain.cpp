@@ -19,6 +19,8 @@
 
 namespace IVJ
 {
+    std::shared_ptr<Entidad> boss; // global variable for testing boss systems
+
     void EscenaMain::initPlayerPointer()
     {
         CE::GestorAssets::Get().agregarTextura("hojaPlayer", ASSETS "/sprites/player/player_sprite.png",
@@ -234,7 +236,7 @@ namespace IVJ
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
         newRoundTextTimer.max_frame = 5 * SECONDS_;
 
-        auto boss = std::make_shared<Entidad>();
+        boss = std::make_shared<Entidad>();
         MirageInit(boss, spawnPositions);
         objetos.agregarPool(boss);
 
@@ -344,6 +346,10 @@ namespace IVJ
         processPlayerKnifeAttack(enemies);
         // Handle enemy attacks on the player via system
         SystemHandleEnemyAttacks(player, enemies);
+
+        // Update systems related to bosses (boss uses direct velocity control like enemies)
+        BSysMrgMovement(boss, player, dt);
+
 
         // Clean up dead objects from pool
         objetos.borrarPool();

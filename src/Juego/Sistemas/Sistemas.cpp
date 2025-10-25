@@ -6,6 +6,7 @@
 
 #include "Juego/Figuras/Figuras.hpp"
 #include "Juego/objetos/Entidad.hpp"
+#include "Juego/Componentes/Boss/IBossBehavior.h"
 #include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Utils/Lerp.hpp"
@@ -22,6 +23,10 @@ namespace IVJ
         auto p = ente.getTransformada();
         auto c = ente.getComponente<CE::IControl>();
         auto s = ente.getStats();
+
+        // Reset velocity to 0 first for clean input handling
+        p->velocidad.x = 0.0f;
+        p->velocidad.y = 0.0f;
 
         if(c->arr)
             p->velocidad.y=-s->maxSpeed;
@@ -53,7 +58,7 @@ namespace IVJ
                 continue;
             //todo ente tiene ITransform por lo que no requiere verificación
             auto trans = ente->getTransformada();
-            // Check if entity has control component (like player)
+            // Check if entity it's the player
             if (ente->tieneComponente<CE::IControl>() && entityType->type == CE::ENTITY_TYPE::PLAYER)
             {
                 // For controlled entities, velocity gets reset each frame by SistemaControl
@@ -958,8 +963,19 @@ namespace IVJ
 
         const CE::Vector2D diff = enemyPos.resta(playerPos);
         const float distance = diff.magnitud();
+
+        // Determine attack range based on whether it's a boss
+        // Bosses have larger sprites, so use a larger range
+        float attackRange = 35.f; // Default for regular enemies
+
+        // Check if this enemy is a boss by checking for boss behavior component
+        if (enemyToAttack->tieneComponente<IVJ::IBossBhvrMirage>())
+        {
+            attackRange = 68.f; // Larger range for bosses
+        }
+
         // if the player is close enough to attack the enemy
-        if (distance <= 35.f)
+        if (distance <= attackRange)
         {
             player->attackWithKnife(true, enemyToAttack);
             didHitEnemy = true;

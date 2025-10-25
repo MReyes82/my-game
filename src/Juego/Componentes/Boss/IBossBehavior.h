@@ -22,11 +22,31 @@ namespace IVJ
             RANGED,
         };
 
+        enum MELEE_ATTACK_TYPE
+        {
+            SIMPLE,  // Slow, telegraphed attack with higher damage
+            QUICK,   // Fast attack with lower damage
+            NONE     // Not currently attacking
+        };
+
         ATTACK_PHASE currentAttackPhase;
+        MELEE_ATTACK_TYPE currentMeleeAttack;
+
         int currentTrapsDeployed;
         int maxTrapsAllowed;
         int meleeAttackDamage;
+        int quickMeleeAttackDamage;
         int rangedAttackDamage;
+
+        // Melee attack timing (using ITimer components)
+        std::shared_ptr<CE::ITimer> meleeAttackCooldownTimer;    // Cooldown between attacks
+        std::shared_ptr<CE::ITimer> simpleMeleeWindupTimer;      // Windup time for simple attack
+        std::shared_ptr<CE::ITimer> quickMeleeWindupTimer;       // Windup time for quick attack
+
+        // Attack range
+        float meleeAttackRange;
+        bool isWindingUp;  // Is the boss currently winding up an attack?
+        bool hasLandedAttack; // Has the current attack landed?
 
     };
 }

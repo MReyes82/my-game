@@ -42,7 +42,7 @@ namespace CE
         LOOT_UTILITY,
         PROJECTILE,
         STATIC,
-        DYNAMIC
+        DYNAMIC,
     };
 
     class IComponentes

@@ -4,13 +4,27 @@ namespace IVJ
 {
     // TODO: add handling to be able to adjust
     // based on a "difficulty" parameter
-    IBossBhvrMirage::IBossBhvrMirage()
+    IBossBhvrMirage::IBossBhvrMirage() :
+        currentAttackPhase{MELEE},
+        currentMeleeAttack{NONE},
+        currentTrapsDeployed{0},
+        maxTrapsAllowed{10},
+        meleeAttackDamage{5},
+        quickMeleeAttackDamage{3},
+        rangedAttackDamage{2},
+        meleeAttackRange{80.0f},
+        isWindingUp{false},
+        hasLandedAttack{false}
     {
-        currentTrapsDeployed = RANGED;
-        currentTrapsDeployed = 0;
-        maxTrapsAllowed = 10;
-        meleeAttackDamage = 3;
-        rangedAttackDamage = 2;
+        // Initialize timer components (assuming 60 FPS)
+        meleeAttackCooldownTimer = std::make_shared<CE::ITimer>(120);  // 2 seconds at 60 FPS
+        simpleMeleeWindupTimer = std::make_shared<CE::ITimer>(72);     // 1.2 seconds at 60 FPS
+        quickMeleeWindupTimer = std::make_shared<CE::ITimer>(24);      // 0.4 seconds at 60 FPS
+
+        // Reset all timers to 0
+        meleeAttackCooldownTimer->frame_actual = 0;
+        simpleMeleeWindupTimer->frame_actual = 0;
+        quickMeleeWindupTimer->frame_actual = 0;
     }
 
 }
