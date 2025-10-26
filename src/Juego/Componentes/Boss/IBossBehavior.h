@@ -49,5 +49,13 @@ namespace IVJ
         bool hasLandedAttack; // Has the current attack landed?
         bool didTeleport; // Did the boss teleport for the current attack?
 
+        // Ranged attack properties
+        float rangedKeepDistanceRange;  // Distance to maintain from player (~200 units)
+        std::shared_ptr<CE::ITimer> rangedAttackTimer;  // 3 second timer for ranged attacks
+        std::shared_ptr<CE::ITimer> projectileBurstTimer;  // Timer for burst cadence (30 frames)
+        int currentBurstCount;  // Current burst number (0-2, for 3 bursts)
+        int currentProjectilesInBurst;  // Current projectile in burst (0-4, for 5 projectiles)
+        bool isShootingBurst;  // Is currently shooting a burst of projectiles
+
     };
 }

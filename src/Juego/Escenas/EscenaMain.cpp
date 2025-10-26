@@ -348,7 +348,12 @@ namespace IVJ
         SystemHandleEnemyAttacks(player, enemies);
 
         // Update systems related to bosses (boss uses direct velocity control like enemies)
-        if (boss->estaVivo()) BSysMrgMovement(boss, player, dt);
+        if (boss->estaVivo())
+        {
+            BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
+            BSysUpdateProjectiles(bossProjectiles, player, dt);
+            BSysUpdateTraps(bossTraps, boss, player, dt);
+        }
 
 
         // Clean up dead objects from pool
@@ -473,6 +478,8 @@ namespace IVJ
         {
             CE::Render::Get().AddToDraw(*obj);
         }
+
+
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 

@@ -34,6 +34,14 @@ namespace IVJ
     // this function assumes that the boss pointer passed as parameter it's already created
     void MirageInit(std::shared_ptr<Entidad>& boss, std::array<CE::Vector2D, 20>& positionsArr)
     {
+        // Load projectile texture
+        CE::GestorAssets::Get().agregarTextura("MirageProjectile", ASSETS "/sprites/bosses/mirage_projectile.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+
+        // Load trap texture
+        CE::GestorAssets::Get().agregarTextura("MirageTrap", ASSETS "/sprites/bosses/mirage_trap.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+
         std::set<int> usedIndices;
         /*int posIndex = SystemGetRandomPosition(positionsArr, usedIndices);
         CE::Vector2D spawnPos = positionsArr[posIndex];*/
@@ -52,12 +60,12 @@ namespace IVJ
         // Initialize damage timer for damage animation
         boss->damageTimer = std::make_shared<CE::ITimer>(30); // 30 frames of red flash on damage
 
-        // Set boss to melee phase for testing
+        // Set boss to ranged phase for testing
         auto behavior = boss->getComponente<IBossBhvrMirage>();
-        behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::MELEE;
+        behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
 
         CE::printDebug("[BOSS INIT] Mirage boss initialized at position (" +
-                      std::to_string(spawnPos.x) + ", " + std::to_string(spawnPos.y) + ") in MELEE phase");
+                      std::to_string(spawnPos.x) + ", " + std::to_string(spawnPos.y) + ") in RANGED phase");
     }
     /*
      * Helper function to calculate distance between boss and player
@@ -98,6 +106,155 @@ namespace IVJ
         boss->getTransformada()->velocidad = {0.0f, 0.0f};
     }
     /*
+     * Helper: Handle simple melee attack windup logic
+     * Returns true if attack is active and boss should not move
+     */
+    bool BSysMrgHandleSimpleAttackWindup(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float distanceToPlayer)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Yellow);
+
+        // Only progress windup timer and stop movement if boss is close enough to the player
+        if (distanceToPlayer <= behavior->meleeAttackRange)
+        {
+            BSysStopMovement(boss);
+            behavior->simpleMeleeWindupTimer->frame_actual++;
+
+            // Attack lands
+            if (boss->hasTimerReachedMax(behavior->simpleMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
+            {
+                // Deal damage to player
+                player->hasBeenHit = true;
+                player->checkAndApplyDamage(behavior->meleeAttackDamage);
+                CE::printDebug("[BOSS] Simple melee attack landed! Dealt " +
+                             std::to_string(behavior->meleeAttackDamage) + " damage.");
+                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
+
+                behavior->hasLandedAttack = true;
+                behavior->isWindingUp = false;
+                behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+                boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
+            }
+
+            return true; // Attack is actively winding up and boss is in range
+        }
+
+        return false; // Let movement system handle positioning
+    }
+
+    /*
+     * Helper: Handle quick melee attack windup logic
+     * Returns true (quick attack always commits, boss stops moving)
+     */
+    bool BSysMrgHandleQuickAttackWindup(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float distanceToPlayer)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+
+        // Quick attack always stops movement and progresses timer during windup
+        BSysStopMovement(boss);
+        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Green);
+        behavior->quickMeleeWindupTimer->frame_actual++;
+
+        // Attack lands
+        if (boss->hasTimerReachedMax(behavior->quickMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
+        {
+            boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
+
+            // Check if player is still in range
+            if (distanceToPlayer <= behavior->meleeAttackRange)
+            {
+                // Deal damage to player
+                player->hasBeenHit = true;
+                player->checkAndApplyDamage(behavior->quickMeleeAttackDamage);
+                CE::printDebug("[BOSS] Quick melee attack landed! Dealt " +
+                             std::to_string(behavior->quickMeleeAttackDamage) + " damage.");
+            }
+            else
+            {
+                // Attack missed
+                CE::printDebug("[BOSS] Quick melee attack MISSED! Player out of range.");
+            }
+
+            behavior->hasLandedAttack = true;
+            behavior->isWindingUp = false;
+            behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+            boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
+        }
+
+        return true; // Attack is active
+    }
+
+    /*
+     * Helper: Try to start a simple melee attack
+     * Returns true if attack was initiated
+     */
+    bool BSysMrgTryStartSimpleAttack(std::shared_ptr<Entidad>& boss)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+
+        behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE;
+        boss->resetTimer(behavior->simpleMeleeWindupTimer.get());
+        CE::printDebug("[BOSS] Starting SIMPLE melee attack (windup: " +
+                     std::to_string(behavior->simpleMeleeWindupTimer->max_frame) + " frames)");
+
+        behavior->isWindingUp = true;
+        behavior->hasLandedAttack = false;
+        return true;
+    }
+
+    /*
+     * Helper: Try to start a quick melee attack (with teleport logic)
+     * Returns true if attack was initiated
+     */
+    bool BSysMrgTryStartQuickAttack(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float distanceToPlayer)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+
+        // Define reasonable teleport distance
+        const float minTeleportDistance = 100.f;
+        const float maxTeleportDistance = 400.f;
+
+        // Teleport attack if in medium range
+        if (distanceToPlayer >= minTeleportDistance && distanceToPlayer <= maxTeleportDistance)
+        {
+            // Teleport to player position (with slight offset to be in attack range)
+            const auto& playerPos = player->getTransformada()->posicion;
+            CE::Vector2D directionToPlayer = playerPos - boss->getTransformada()->posicion;
+            directionToPlayer = directionToPlayer.normalizacion();
+
+            // Position boss slightly away from player (at 70% of attack range)
+            CE::Vector2D teleportOffset = directionToPlayer.escala(-behavior->meleeAttackRange * 0.7f);
+            boss->getTransformada()->posicion = playerPos + teleportOffset;
+
+            behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
+            boss->resetTimer(behavior->quickMeleeWindupTimer.get());
+            CE::printDebug("[BOSS] TELEPORTED to player and starting QUICK melee attack (windup: " +
+                         std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
+
+            behavior->isWindingUp = true;
+            behavior->hasLandedAttack = false;
+            behavior->didTeleport = true;
+            return true;
+        }
+
+        // Quick attack without teleport if in close range
+        if (distanceToPlayer <= behavior->meleeAttackRange)
+        {
+            behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
+            boss->resetTimer(behavior->quickMeleeWindupTimer.get());
+            CE::printDebug("[BOSS] Starting QUICK melee attack (windup: " +
+                         std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
+
+            behavior->isWindingUp = true;
+            behavior->hasLandedAttack = false;
+            behavior->didTeleport = false;
+            return true;
+        }
+
+        return false; // Cannot start quick attack from current distance
+    }
+
+    /*
      * System to handle melee attack execution
      * Returns true if an attack is currently active (winding up or executing)
      */
@@ -111,140 +268,38 @@ namespace IVJ
         {
             behavior->meleeAttackCooldownTimer->frame_actual++;
         }
-        // If winding up an attack
+
+        // Handle ongoing attack windup
         if (behavior->isWindingUp)
         {
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
-                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Yellow);
-
-                // Only progress windup timer and stop movement if boss is close enough to the player
-                if (distanceToPlayer <= behavior->meleeAttackRange)
-                {
-                    BSysStopMovement(boss);
-                    behavior->simpleMeleeWindupTimer->frame_actual++;
-
-                    // Attack lands
-                    if (boss->hasTimerReachedMax(behavior->simpleMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
-                    {
-                        // Deal damage to player
-                        player->hasBeenHit = true;
-                        player->checkAndApplyDamage(behavior->meleeAttackDamage);
-                        CE::printDebug("[BOSS] Simple melee attack landed! Dealt " +
-                                     std::to_string(behavior->meleeAttackDamage) + " damage.");
-                        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
-
-                        behavior->hasLandedAttack = true;
-                        behavior->isWindingUp = false;
-                        behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
-                        boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
-                    }
-
-                    return true; // Attack is actively winding up and boss is in range
-                }
-                return false; // Let movement system handle positioning
+                return BSysMrgHandleSimpleAttackWindup(boss, player, distanceToPlayer);
             }
-            if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
+            else if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
             {
-                // Quick attack always stops movement and progresses timer during windup
-                BSysStopMovement(boss);
-                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Green);
-                behavior->quickMeleeWindupTimer->frame_actual++;
-
-                // Attack lands
-                if (boss->hasTimerReachedMax(behavior->quickMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
-                {
-                    // Check if player is still in range
-                    if (distanceToPlayer <= behavior->meleeAttackRange)
-                    {
-                        // Deal damage to player
-                        player->hasBeenHit = true;
-                        player->checkAndApplyDamage(behavior->quickMeleeAttackDamage);
-                        CE::printDebug("[BOSS] Quick melee attack landed! Dealt " +
-                                     std::to_string(behavior->quickMeleeAttackDamage) + " damage.");
-                        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
-                    }
-                    else
-                    {
-                        // Attack missed
-                        CE::printDebug("[BOSS] Quick melee attack MISSED! Player out of range.");
-                    }
-
-                    behavior->hasLandedAttack = true;
-                    behavior->isWindingUp = false;
-                    behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
-                    boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
-                }
-
-                return true; // Attack is active
+                return BSysMrgHandleQuickAttackWindup(boss, player, distanceToPlayer);
             }
+
             return true; // Attack is active
         }
 
-        // Check if we can start a new attack (cooldown complete)
+        // Try to start a new attack if cooldown is complete
         if (boss->hasTimerReachedMax(behavior->meleeAttackCooldownTimer.get()))
         {
-            // Randomly choose between simple and quick attack
-            // 80% chance for simple attack, 20% chance for quick attack
+            // Randomly choose between simple and quick attack (50/50 split)
             static std::random_device rd;
             static std::mt19937 gen(rd());
             static std::uniform_int_distribution<> dis(0, 9);
             int attackChoice = dis(gen);
-            std::cout << "[BOSS] Melee attack choice roll: " << attackChoice << std::endl;
 
-            // Simple attack - only if in range
-            if (attackChoice < 5)// && distanceToPlayer <= behavior->meleeAttackRange)
+            if (attackChoice < 5)
             {
-                behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE;
-                boss->resetTimer(behavior->simpleMeleeWindupTimer.get());
-                CE::printDebug("[BOSS] Starting SIMPLE melee attack (windup: " +
-                             std::to_string(behavior->simpleMeleeWindupTimer->max_frame) + " frames)");
-
-                behavior->isWindingUp = true;
-                behavior->hasLandedAttack = false;
-                return true; // Attack is now active
+                return BSysMrgTryStartSimpleAttack(boss);
             }
-            // Quick attack
-            if (attackChoice >= 5)
+            else
             {
-                // Define reasonable teleport distance (e.g., between 100 and 400 units)
-                const float minTeleportDistance = 100.f;
-                const float maxTeleportDistance = 400.f;
-
-                if (distanceToPlayer >= minTeleportDistance && distanceToPlayer <= maxTeleportDistance)
-                {
-                    // Teleport to player position (with slight offset to be in attack range)
-                    const auto& playerPos = player->getTransformada()->posicion;
-                    CE::Vector2D directionToPlayer = playerPos - boss->getTransformada()->posicion;
-                    directionToPlayer = directionToPlayer.normalizacion();
-
-                    // Position boss slightly away from player (at 70% of attack range)
-                    CE::Vector2D teleportOffset = directionToPlayer.escala(-behavior->meleeAttackRange * 0.7f);
-                    boss->getTransformada()->posicion = playerPos + teleportOffset;
-
-                    behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
-                    boss->resetTimer(behavior->quickMeleeWindupTimer.get());
-                    CE::printDebug("[BOSS] TELEPORTED to player and starting QUICK melee attack (windup: " +
-                                 std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
-
-                    behavior->isWindingUp = true;
-                    behavior->hasLandedAttack = false;
-                    behavior->didTeleport = true; // Mark that this attack involved a teleport
-                    return true; // Attack is now active
-                }
-                if (distanceToPlayer <= behavior->meleeAttackRange)
-                {
-                    // Too close for teleport, just do quick attack from current position
-                    behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
-                    boss->resetTimer(behavior->quickMeleeWindupTimer.get());
-                    CE::printDebug("[BOSS] Starting QUICK melee attack (windup: " +
-                                 std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
-
-                    behavior->isWindingUp = true;
-                    behavior->hasLandedAttack = false;
-                    behavior->didTeleport = false; // No teleport for this attack
-                    return true; // Attack is now active
-                }
+                return BSysMrgTryStartQuickAttack(boss, player, distanceToPlayer);
             }
         }
 
@@ -252,9 +307,322 @@ namespace IVJ
     }
 
     /*
+     * Helper function to maintain distance from player (for ranged mode)
+     */
+    void BSysMrgMaintainDistance(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player,
+                                 float distance, float worldWidth, float worldHeight)
+    {
+        auto& bossTransform = *boss->getTransformada();
+        const auto& playerPos = player->getTransformada()->posicion;
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+
+        CE::Vector2D directionToPlayer = playerPos - bossTransform.posicion;
+        float currentDistance = directionToPlayer.magnitud();
+        directionToPlayer = directionToPlayer.normalizacion();
+
+        const float speed = boss->getStats()->maxSpeed;
+        const float keepDistance = behavior->rangedKeepDistanceRange;
+        const float toleranceRange = 30.f; // tolerance zone to prevent jitter
+        const float boundaryMargin = 100.f; // Stay at least 100 units from world edges
+
+        // Check if boss is near world boundaries
+        bool nearLeftEdge = bossTransform.posicion.x < boundaryMargin;
+        bool nearRightEdge = bossTransform.posicion.x > worldWidth - boundaryMargin;
+        bool nearTopEdge = bossTransform.posicion.y < boundaryMargin;
+        bool nearBottomEdge = bossTransform.posicion.y > worldHeight - boundaryMargin;
+
+        CE::Vector2D velocity{0.f, 0.f};
+
+        // If too close, move away from player
+        if (currentDistance < keepDistance - toleranceRange)
+        {
+            velocity = directionToPlayer.escala(-speed); // move away
+
+            // If near boundaries, restrict movement to only one axis
+            if (nearLeftEdge || nearRightEdge)
+            {
+                velocity.x = 0.f; // Only move vertically
+            }
+            if (nearTopEdge || nearBottomEdge)
+            {
+                velocity.y = 0.f; // Only move horizontally
+            }
+
+            bossTransform.velocidad = velocity;
+
+            // Update facing direction
+            if (directionToPlayer.x != 0 && velocity.x != 0)
+            {
+                boss->setIsEntityFacingRight(directionToPlayer.x < 0); // face away from player
+            }
+        }
+        // If too far, move towards player
+        else if (currentDistance > keepDistance + toleranceRange)
+        {
+            velocity = directionToPlayer.escala(speed); // move closer
+
+            // If near boundaries, restrict movement to only one axis
+            if (nearLeftEdge || nearRightEdge)
+            {
+                velocity.x = 0.f; // Only move vertically
+            }
+            if (nearTopEdge || nearBottomEdge)
+            {
+                velocity.y = 0.f; // Only move horizontally
+            }
+
+            bossTransform.velocidad = velocity;
+
+            // Update facing direction
+            if (directionToPlayer.x != 0 && velocity.x != 0)
+            {
+                boss->setIsEntityFacingRight(directionToPlayer.x > 0); // face towards player
+            }
+        }
+        // Within tolerance range, stop moving
+        else
+        {
+            BSysStopMovement(boss);
+        }
+    }
+
+    /*
+     * Helper function to create a trap at boss's current position
+     */
+    void BSysMrgCreateTrap(std::shared_ptr<Entidad>& boss, std::vector<std::shared_ptr<Entidad>>& traps,
+                           CE::Pool& pool)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+
+        // Check if max traps deployed
+        if (behavior->currentTrapsDeployed >= behavior->maxTrapsAllowed)
+        {
+            CE::printDebug("[BOSS] Cannot deploy trap: max traps reached (" +
+                          std::to_string(behavior->maxTrapsAllowed) + ")");
+            return;
+        }
+
+        // Create trap entity at boss's current position
+        auto trap = std::make_shared<Entidad>();
+        const auto& bossPos = boss->getTransformada()->posicion;
+        trap->setPosicion(bossPos.x, bossPos.y);
+
+        // Add sprite component using the trap texture
+        trap->addComponente(std::make_shared<CE::ISprite>(
+                    CE::GestorAssets::Get().getTextura("MirageTrap"),
+                    16, 16, 1.f))
+            .addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{16.f, 16.f}))
+            .addComponente(std::make_shared<CE::ITimer>(600)); // 10 seconds lifetime at 60 FPS
+
+        // Initialize trap stats
+        trap->getStats()->hp = 1; // keep it alive
+        trap->getStats()->damage = behavior->rangedAttackDamage;
+
+        // Add entity type to identify as trap/enemy for collision
+        trap->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+
+        traps.push_back(trap);
+        pool.agregarPool(trap); // Add to pool for rendering and collision
+        behavior->currentTrapsDeployed++;
+
+        CE::printDebug("[BOSS] Trap deployed at (" + std::to_string(bossPos.x) + ", " +
+                      std::to_string(bossPos.y) + "). Total traps: " +
+                      std::to_string(behavior->currentTrapsDeployed));
+    }
+
+    /*
+     * System to handle ranged attack (projectile bursts)
+     * Returns true if an attack is currently active
+     */
+    void BSysMrgRangedAttack(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player,
+                             std::vector<std::shared_ptr<Entidad>>& bossProjectiles,
+                             CE::Pool& pool, float dt)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+
+        // Update ranged attack timer
+        if (!boss->hasTimerReachedMax(behavior->rangedAttackTimer.get()))
+        {
+            behavior->rangedAttackTimer->frame_actual++;
+        }
+
+        // If we're currently shooting a burst
+        if (behavior->isShootingBurst)
+        {
+            // Update burst cadence timer
+            behavior->projectileBurstTimer->frame_actual++;
+
+            // Time to shoot next projectile in burst
+            if (boss->hasTimerReachedMax(behavior->projectileBurstTimer.get()))
+            {
+                // Shoot projectile towards player
+                const auto& bossPos = boss->getTransformada()->posicion;
+                const auto& playerPos = player->getTransformada()->posicion;
+
+                CE::Vector2D directionToPlayer = playerPos - bossPos;
+                directionToPlayer = directionToPlayer.normalizacion();
+                CE::Vector2D projectileVel = directionToPlayer.escala(150.f); // projectile speed
+
+                // Create projectile
+                auto projectile = std::make_shared<Entidad>();
+                projectile->setPosicion(bossPos.x, bossPos.y);
+                projectile->getTransformada()->velocidad = projectileVel;
+
+                projectile->addComponente(std::make_shared<CE::ISprite>(
+                                 CE::GestorAssets::Get().getTextura("MirageProjectile"),
+                                 16, 16, 1.f))
+                          .addComponente(std::make_shared<CE::IBoundingBox>(
+                                 CE::Vector2D{16.f, 16.f}))
+                          .addComponente(std::make_shared<CE::ITimer>(120)); // 2 seconds lifetime
+
+                projectile->getStats()->hp = 1;
+                projectile->getStats()->damage = behavior->rangedAttackDamage;
+                projectile->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY)); // enemy projectile
+
+                bossProjectiles.push_back(projectile);
+                pool.agregarPool(projectile); // Add to pool for rendering and collision
+
+                behavior->currentProjectilesInBurst++;
+                CE::printDebug("[BOSS] Fired projectile " + std::to_string(behavior->currentProjectilesInBurst) +
+                              " of burst " + std::to_string(behavior->currentBurstCount + 1));
+
+                // Check if burst is complete (5 projectiles)
+                if (behavior->currentProjectilesInBurst >= 5)
+                {
+                    behavior->currentProjectilesInBurst = 0;
+                    behavior->currentBurstCount++;
+
+                    // Check if all bursts are complete (3 bursts)
+                    if (behavior->currentBurstCount >= 3)
+                    {
+                        behavior->isShootingBurst = false;
+                        behavior->currentBurstCount = 0;
+                        boss->resetTimer(behavior->rangedAttackTimer.get());
+                        CE::printDebug("[BOSS] Completed all 3 bursts. Resetting ranged attack timer.");
+                    }
+                }
+
+                // Reset burst timer for next projectile
+                boss->resetTimer(behavior->projectileBurstTimer.get());
+            }
+        }
+        // Try to start a new burst sequence if timer is ready
+        else if (boss->hasTimerReachedMax(behavior->rangedAttackTimer.get()))
+        {
+            behavior->isShootingBurst = true;
+            behavior->currentProjectilesInBurst = 0;
+            behavior->currentBurstCount = 0;
+            boss->resetTimer(behavior->projectileBurstTimer.get());
+            CE::printDebug("[BOSS] Starting new projectile burst sequence (3 bursts of 5 projectiles)");
+        }
+    }
+
+    /*
+     * System to update boss projectiles (collision, lifetime)
+     */
+    void BSysUpdateProjectiles(std::vector<std::shared_ptr<Entidad>>& bossProjectiles,
+                               std::shared_ptr<Entidad>& player, float dt)
+    {
+        for (auto it = bossProjectiles.begin(); it != bossProjectiles.end(); )
+        {
+            auto& projectile = *it;
+            bool shouldRemove = false;
+
+            projectile->onUpdate(dt);
+
+            // Check collision with player
+            if (SistemaColAABBMid(*projectile, *player, true))
+            {
+                player->hasBeenHit = true;
+                player->checkAndApplyDamage(projectile->getStats()->damage);
+                shouldRemove = true;
+                CE::printDebug("[BOSS] Projectile hit player!");
+            }
+
+            // Check if projectile lifetime expired
+            if (projectile->tieneComponente<CE::ITimer>() &&
+                projectile->hasTimerReachedMax(projectile->getComponente<CE::ITimer>()))
+            {
+                shouldRemove = true;
+            }
+
+            if (shouldRemove)
+            {
+                projectile->getStats()->hp = 0; // Mark for deletion by pool cleanup
+                it = bossProjectiles.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    /*
+     * System to update boss traps (collision, lifetime)
+     */
+    void BSysUpdateTraps(std::vector<std::shared_ptr<Entidad>>& bossTraps,
+                         std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float dt)
+    {
+        for (auto it = bossTraps.begin(); it != bossTraps.end(); )
+        {
+            auto& trap = *it;
+            bool shouldRemove = false;
+
+            trap->onUpdate(dt);
+
+            // Check collision with player
+            if (SistemaColAABBMid(*trap, *player, true))
+            {
+                player->hasBeenHit = true;
+                player->checkAndApplyDamage(trap->getStats()->damage);
+                shouldRemove = true;
+
+                // Decrease trap counter
+                if (boss->estaVivo())
+                {
+                    auto behavior = boss->getComponente<IBossBhvrMirage>();
+                    behavior->currentTrapsDeployed--;
+                }
+
+                CE::printDebug("[BOSS] Player triggered trap!");
+            }
+
+            // Check if trap lifetime expired
+            if (trap->tieneComponente<CE::ITimer>() &&
+                trap->hasTimerReachedMax(trap->getComponente<CE::ITimer>()))
+            {
+                shouldRemove = true;
+
+                // Decrease trap counter
+                if (boss->estaVivo())
+                {
+                    auto behavior = boss->getComponente<IBossBhvrMirage>();
+                    behavior->currentTrapsDeployed--;
+                }
+
+                CE::printDebug("[BOSS] Trap expired!");
+            }
+
+            if (shouldRemove)
+            {
+                trap->getStats()->hp = 0; // Mark for deletion by pool cleanup
+                it = bossTraps.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    /*
      * Main system to handle the movement behavior of the Mirage boss
      */
-    void BSysMrgMovement(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float dt)
+    void BSysMrgMovement(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player,
+                         std::vector<std::shared_ptr<Entidad>>& bossProjectiles,
+                         std::vector<std::shared_ptr<Entidad>>& traps,
+                         CE::Pool& pool, float worldWidth, float worldHeight, float dt)
     {
         auto behavior = boss->getComponente<IBossBhvrMirage>();
         auto currentAttackPhase = behavior->currentAttackPhase;
@@ -297,8 +665,33 @@ namespace IVJ
         // and rely on projectiles to damage the player
         else if (currentAttackPhase == IBossBhvrMirage::ATTACK_PHASE::RANGED)
         {
-            // TODO: Implement ranged behavior
-            // For now, maintain distance from player
+            float distanceToPlayer = BSysGetDistanceToPlayer(boss, player);
+
+            // Maintain desired distance from player with world boundary checking
+            BSysMrgMaintainDistance(boss, player, distanceToPlayer, worldWidth, worldHeight);
+
+            // Execute ranged attack (projectile bursts)
+            BSysMrgRangedAttack(boss, player, bossProjectiles, pool, dt);
+
+            // Randomly set traps (10% chance per second, controlled by frame counter)
+            static int trapChanceCounter = 0;
+            trapChanceCounter++;
+
+            // Check every 60 frames (1 second) for trap deployment
+            if (trapChanceCounter >= 60)
+            {
+                trapChanceCounter = 0;
+
+                // 30% chance to deploy trap
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_int_distribution<> dis(0, 99);
+
+                if (dis(gen) < 30)
+                {
+                    BSysMrgCreateTrap(boss, traps, pool);
+                }
+            }
         }
     }
 }

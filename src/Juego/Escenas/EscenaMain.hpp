@@ -47,6 +47,8 @@ namespace IVJ
         CE::UTILITY_TYPE newUtilityType {CE::UTILITY_TYPE::NONE};
         std::vector<std::shared_ptr<Entidad>> lootItems; // vector of loot items in the scene
         std::vector<std::shared_ptr<Entidad>> bulletsShot; // vector of projectiles in the scene (soon to be implemented)
+        std::vector<std::shared_ptr<Entidad>> bossProjectiles; // vector of boss projectiles
+        std::vector<std::shared_ptr<Entidad>> bossTraps; // vector of boss traps
 
         // round management
         signed int currentRound {0};
