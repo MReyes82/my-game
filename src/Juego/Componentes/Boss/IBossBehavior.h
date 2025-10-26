@@ -47,6 +47,7 @@ namespace IVJ
         float meleeAttackRange;
         bool isWindingUp;  // Is the boss currently winding up an attack?
         bool hasLandedAttack; // Has the current attack landed?
+        bool didTeleport; // Did the boss teleport for the current attack?
 
     };
 }

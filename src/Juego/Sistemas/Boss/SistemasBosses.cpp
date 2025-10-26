@@ -69,12 +69,11 @@ namespace IVJ
         CE::Vector2D diff = playerPos - bossPos;
         return diff.magnitud();
     }
-
     /*
      * Helper function to move boss towards player
      * Directly sets velocity like enemy movement (no IControl)
      */
-    void BSysMoveTowardsPlayer(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float dt)
+    void BSysMoveTowardsPlayer(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player)
     {
         auto& bossTransform = *boss->getTransformada();
         const auto& playerPos = player->getTransformada()->posicion;
@@ -91,7 +90,6 @@ namespace IVJ
             boss->setIsEntityFacingRight(directionToPlayer.x > 0);
         }
     }
-
     /*
      * Helper function to stop boss movement
      */
@@ -107,93 +105,147 @@ namespace IVJ
     {
         auto behavior = boss->getComponente<IBossBhvrMirage>();
         float distanceToPlayer = BSysGetDistanceToPlayer(boss, player);
+
         // Update attack cooldown timer
-        if (behavior->meleeAttackCooldownTimer->frame_actual < behavior->meleeAttackCooldownTimer->max_frame)
+        if (!boss->hasTimerReachedMax(behavior->meleeAttackCooldownTimer.get()))
         {
             behavior->meleeAttackCooldownTimer->frame_actual++;
         }
         // If winding up an attack
         if (behavior->isWindingUp)
         {
-            // Stop movement during windup
-            BSysStopMovement(boss);
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
-                behavior->simpleMeleeWindupTimer->frame_actual++;
-                // Attack lands
-                if (behavior->simpleMeleeWindupTimer->frame_actual >= behavior->simpleMeleeWindupTimer->max_frame
-                    && !behavior->hasLandedAttack)
+                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Yellow);
+
+                // Only progress windup timer and stop movement if boss is close enough to the player
+                if (distanceToPlayer <= behavior->meleeAttackRange)
                 {
-                    // Check if player is still in range
-                    if (distanceToPlayer <= behavior->meleeAttackRange)
+                    BSysStopMovement(boss);
+                    behavior->simpleMeleeWindupTimer->frame_actual++;
+
+                    // Attack lands
+                    if (boss->hasTimerReachedMax(behavior->simpleMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
                     {
                         // Deal damage to player
-                        auto playerStats = player->getStats();
-                        playerStats->hp -= behavior->meleeAttackDamage;
+                        player->hasBeenHit = true;
+                        player->checkAndApplyDamage(behavior->meleeAttackDamage);
                         CE::printDebug("[BOSS] Simple melee attack landed! Dealt " +
                                      std::to_string(behavior->meleeAttackDamage) + " damage.");
+                        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
+
+                        behavior->hasLandedAttack = true;
+                        behavior->isWindingUp = false;
+                        behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+                        boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
                     }
-                    behavior->hasLandedAttack = true;
-                    behavior->isWindingUp = false;
-                    behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
-                    behavior->meleeAttackCooldownTimer->frame_actual = 0; // Reset cooldown
+
+                    return true; // Attack is actively winding up and boss is in range
                 }
+                return false; // Let movement system handle positioning
             }
-            else if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
+            if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
             {
+                // Quick attack always stops movement and progresses timer during windup
+                BSysStopMovement(boss);
+                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Green);
                 behavior->quickMeleeWindupTimer->frame_actual++;
 
                 // Attack lands
-                if (behavior->quickMeleeWindupTimer->frame_actual >= behavior->quickMeleeWindupTimer->max_frame
-                    && !behavior->hasLandedAttack)
+                if (boss->hasTimerReachedMax(behavior->quickMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
                 {
                     // Check if player is still in range
                     if (distanceToPlayer <= behavior->meleeAttackRange)
                     {
                         // Deal damage to player
-                        auto playerStats = player->getStats();
-                        playerStats->hp -= behavior->quickMeleeAttackDamage;
+                        player->hasBeenHit = true;
+                        player->checkAndApplyDamage(behavior->quickMeleeAttackDamage);
                         CE::printDebug("[BOSS] Quick melee attack landed! Dealt " +
                                      std::to_string(behavior->quickMeleeAttackDamage) + " damage.");
+                        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
                     }
+                    else
+                    {
+                        // Attack missed
+                        CE::printDebug("[BOSS] Quick melee attack MISSED! Player out of range.");
+                    }
+
                     behavior->hasLandedAttack = true;
                     behavior->isWindingUp = false;
                     behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
-                    behavior->meleeAttackCooldownTimer->frame_actual = 0; // Reset cooldown
+                    boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
                 }
+
+                return true; // Attack is active
             }
             return true; // Attack is active
         }
 
         // Check if we can start a new attack (cooldown complete)
-        if (behavior->meleeAttackCooldownTimer->frame_actual >= behavior->meleeAttackCooldownTimer->max_frame
-            && distanceToPlayer <= behavior->meleeAttackRange)
+        if (boss->hasTimerReachedMax(behavior->meleeAttackCooldownTimer.get()))
         {
             // Randomly choose between simple and quick attack
-            // 40% chance for simple attack, 60% chance for quick attack
+            // 80% chance for simple attack, 20% chance for quick attack
             static std::random_device rd;
             static std::mt19937 gen(rd());
             static std::uniform_int_distribution<> dis(0, 9);
             int attackChoice = dis(gen);
+            std::cout << "[BOSS] Melee attack choice roll: " << attackChoice << std::endl;
 
-            if (attackChoice < 4) // Simple attack
+            // Simple attack - only if in range
+            if (attackChoice < 5)// && distanceToPlayer <= behavior->meleeAttackRange)
             {
                 behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE;
-                behavior->simpleMeleeWindupTimer->frame_actual = 0; // Reset windup timer
+                boss->resetTimer(behavior->simpleMeleeWindupTimer.get());
                 CE::printDebug("[BOSS] Starting SIMPLE melee attack (windup: " +
                              std::to_string(behavior->simpleMeleeWindupTimer->max_frame) + " frames)");
-            }
-            else // Quick attack
-            {
-                behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
-                behavior->quickMeleeWindupTimer->frame_actual = 0; // Reset windup timer
-                CE::printDebug("[BOSS] Starting QUICK melee attack (windup: " +
-                             std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
-            }
 
-            behavior->isWindingUp = true;
-            behavior->hasLandedAttack = false;
-            return true; // Attack is now active
+                behavior->isWindingUp = true;
+                behavior->hasLandedAttack = false;
+                return true; // Attack is now active
+            }
+            // Quick attack
+            if (attackChoice >= 5)
+            {
+                // Define reasonable teleport distance (e.g., between 100 and 400 units)
+                const float minTeleportDistance = 100.f;
+                const float maxTeleportDistance = 400.f;
+
+                if (distanceToPlayer >= minTeleportDistance && distanceToPlayer <= maxTeleportDistance)
+                {
+                    // Teleport to player position (with slight offset to be in attack range)
+                    const auto& playerPos = player->getTransformada()->posicion;
+                    CE::Vector2D directionToPlayer = playerPos - boss->getTransformada()->posicion;
+                    directionToPlayer = directionToPlayer.normalizacion();
+
+                    // Position boss slightly away from player (at 70% of attack range)
+                    CE::Vector2D teleportOffset = directionToPlayer.escala(-behavior->meleeAttackRange * 0.7f);
+                    boss->getTransformada()->posicion = playerPos + teleportOffset;
+
+                    behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
+                    boss->resetTimer(behavior->quickMeleeWindupTimer.get());
+                    CE::printDebug("[BOSS] TELEPORTED to player and starting QUICK melee attack (windup: " +
+                                 std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
+
+                    behavior->isWindingUp = true;
+                    behavior->hasLandedAttack = false;
+                    behavior->didTeleport = true; // Mark that this attack involved a teleport
+                    return true; // Attack is now active
+                }
+                if (distanceToPlayer <= behavior->meleeAttackRange)
+                {
+                    // Too close for teleport, just do quick attack from current position
+                    behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
+                    boss->resetTimer(behavior->quickMeleeWindupTimer.get());
+                    CE::printDebug("[BOSS] Starting QUICK melee attack (windup: " +
+                                 std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
+
+                    behavior->isWindingUp = true;
+                    behavior->hasLandedAttack = false;
+                    behavior->didTeleport = false; // No teleport for this attack
+                    return true; // Attack is now active
+                }
+            }
         }
 
         return false; // No attack active
@@ -201,7 +253,6 @@ namespace IVJ
 
     /*
      * Main system to handle the movement behavior of the Mirage boss
-     * This makes use of the IControl component, setting the directional inputs
      */
     void BSysMrgMovement(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float dt)
     {
@@ -225,7 +276,6 @@ namespace IVJ
         {
             // Try to execute melee attack if in range
             bool isAttacking = BSysMrgMeleeAttack(boss, player, dt);
-
             // If not attacking, move towards the player
             if (!isAttacking)
             {
@@ -234,7 +284,7 @@ namespace IVJ
                 // If outside attack range, move towards player
                 if (distanceToPlayer > behavior->meleeAttackRange * 0.8f) // Start approaching at 80% of attack range
                 {
-                    BSysMoveTowardsPlayer(boss, player, dt);
+                    BSysMoveTowardsPlayer(boss, player);
                 }
                 else
                 {

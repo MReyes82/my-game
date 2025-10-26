@@ -30,7 +30,7 @@ namespace IVJ
             void applyKnockback(CE::Vector2D direction, float force);
             // stat modifiers
             bool hasBeenHit = false;
-            void checkAndApplyDamage(std::uint8_t damage);
+            void checkAndApplyDamage(int damage);
             bool isDamageAnimationActive = false;
             void checkDamageAnimation();
             void resetSpeed(float currentBoost);

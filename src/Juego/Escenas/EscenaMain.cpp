@@ -348,7 +348,7 @@ namespace IVJ
         SystemHandleEnemyAttacks(player, enemies);
 
         // Update systems related to bosses (boss uses direct velocity control like enemies)
-        BSysMrgMovement(boss, player, dt);
+        if (boss->estaVivo()) BSysMrgMovement(boss, player, dt);
 
 
         // Clean up dead objects from pool
