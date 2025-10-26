@@ -109,7 +109,7 @@ namespace IVJ
 
             enemy->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
             enemy->addComponente(std::make_shared<CE::ITimer>(SECONDS_ * 1)); // default timer, used for the attacking animation timing
-            enemy->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
+            enemy->damageTimer = std::make_shared<CE::ITimer>(30); // 30 frames of red flash on damage
 
             objetos.agregarPool(enemy);
         }
@@ -483,7 +483,8 @@ namespace IVJ
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 
-        if (newRoundTextTimer.frame_actual <= newRoundTextTimer.max_frame && shouldShowNewRoundText)
+        if (newRoundTextTimer.frame_actual <= newRoundTextTimer.max_frame && shouldShowNewRoundText
+            && currentRound > 1)
         {
             //CE::printDebug("DRAW ROUND TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getRoundText());

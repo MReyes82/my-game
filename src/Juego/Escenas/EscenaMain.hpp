@@ -52,7 +52,7 @@ namespace IVJ
 
         // round management
         signed int currentRound {0};
-        int MAX_ROUND_ENEMIES = 9;
+        int MAX_ROUND_ENEMIES = 10; // should be 9 for first round, but it's 10 to account the boss
         int currentEnemiesInScene = 0;
         bool shouldShowNewRoundText = true;
         CE::ITimer newRoundTextTimer {0};

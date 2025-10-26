@@ -45,7 +45,7 @@ namespace IVJ
         std::set<int> usedIndices;
         /*int posIndex = SystemGetRandomPosition(positionsArr, usedIndices);
         CE::Vector2D spawnPos = positionsArr[posIndex];*/
-        const CE::Vector2D spawnPos = {300.f, 300.f}; // fixed spawn for testing
+        const CE::Vector2D spawnPos = {1000.f, 1000.f}; // fixed spawn for testing
         boss->setPosicion(spawnPos.x, spawnPos.y);
         boss->addComponente(std::make_shared<IBossBhvrMirage>());
         BSysAdjustBossStats(boss, BOSS_TYPE::MIRAGE);
@@ -325,65 +325,59 @@ namespace IVJ
         const float toleranceRange = 30.f; // tolerance zone to prevent jitter
         const float boundaryMargin = 100.f; // Stay at least 100 units from world edges
 
-        // Check if boss is near world boundaries
-        bool nearLeftEdge = bossTransform.posicion.x < boundaryMargin;
-        bool nearRightEdge = bossTransform.posicion.x > worldWidth - boundaryMargin;
-        bool nearTopEdge = bossTransform.posicion.y < boundaryMargin;
-        bool nearBottomEdge = bossTransform.posicion.y > worldHeight - boundaryMargin;
-
         CE::Vector2D velocity{0.f, 0.f};
 
-        // If too close, move away from player
+        // Calculate desired velocity based on distance to player
         if (currentDistance < keepDistance - toleranceRange)
         {
-            velocity = directionToPlayer.escala(-speed); // move away
-
-            // If near boundaries, restrict movement to only one axis
-            if (nearLeftEdge || nearRightEdge)
-            {
-                velocity.x = 0.f; // Only move vertically
-            }
-            if (nearTopEdge || nearBottomEdge)
-            {
-                velocity.y = 0.f; // Only move horizontally
-            }
-
-            bossTransform.velocidad = velocity;
+            // Too close - move away from player
+            velocity = directionToPlayer.escala(-speed);
 
             // Update facing direction
-            if (directionToPlayer.x != 0 && velocity.x != 0)
+            if (directionToPlayer.x != 0)
             {
                 boss->setIsEntityFacingRight(directionToPlayer.x < 0); // face away from player
             }
         }
-        // If too far, move towards player
         else if (currentDistance > keepDistance + toleranceRange)
         {
-            velocity = directionToPlayer.escala(speed); // move closer
-
-            // If near boundaries, restrict movement to only one axis
-            if (nearLeftEdge || nearRightEdge)
-            {
-                velocity.x = 0.f; // Only move vertically
-            }
-            if (nearTopEdge || nearBottomEdge)
-            {
-                velocity.y = 0.f; // Only move horizontally
-            }
-
-            bossTransform.velocidad = velocity;
+            // Too far - move towards player
+            velocity = directionToPlayer.escala(speed);
 
             // Update facing direction
-            if (directionToPlayer.x != 0 && velocity.x != 0)
+            if (directionToPlayer.x != 0)
             {
                 boss->setIsEntityFacingRight(directionToPlayer.x > 0); // face towards player
             }
         }
-        // Within tolerance range, stop moving
         else
         {
+            // Within tolerance range, stop moving
             BSysStopMovement(boss);
+            return;
         }
+
+        // Clamp velocity to prevent moving outside world boundaries
+        // Only prevent movement that would take boss further out of bounds
+        if (bossTransform.posicion.x < boundaryMargin && velocity.x < 0)
+        {
+            velocity.x = 0.f; // Don't move further left
+        }
+        else if (bossTransform.posicion.x > worldWidth - boundaryMargin && velocity.x > 0)
+        {
+            velocity.x = 0.f; // Don't move further right
+        }
+
+        if (bossTransform.posicion.y < boundaryMargin && velocity.y < 0)
+        {
+            velocity.y = 0.f; // Don't move further up
+        }
+        else if (bossTransform.posicion.y > worldHeight - boundaryMargin && velocity.y > 0)
+        {
+            velocity.y = 0.f; // Don't move further down
+        }
+
+        bossTransform.velocidad = velocity;
     }
 
     /*
@@ -402,9 +396,27 @@ namespace IVJ
             return;
         }
 
+        // Get boss's current position for trap placement
+        const auto& bossPos = boss->getTransformada()->posicion;
+
+        // Check if new trap would be too close to existing traps (prevent clustering)
+        const float minTrapDistance = 60.f;
+        for (const auto& existingTrap : traps)
+        {
+            const auto& trapPos = existingTrap->getTransformada()->posicion;
+            CE::Vector2D diff = bossPos - trapPos;
+            float distance = diff.magnitud();
+
+            if (distance < minTrapDistance)
+            {
+                CE::printDebug("[BOSS] Cannot deploy trap: too close to existing trap (distance: " +
+                              std::to_string(distance) + ")");
+                return;
+            }
+        }
+
         // Create trap entity at boss's current position
         auto trap = std::make_shared<Entidad>();
-        const auto& bossPos = boss->getTransformada()->posicion;
         trap->setPosicion(bossPos.x, bossPos.y);
 
         // Add sprite component using the trap texture
@@ -419,7 +431,10 @@ namespace IVJ
         trap->getStats()->damage = behavior->rangedAttackDamage;
 
         // Add entity type to identify as trap/enemy for collision
-        trap->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+        // * Removed entity component so collisions are not handled and the player can
+        // step on the trap freely (trap logic will handle damage application)
+        //trap->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+        trap->damageTimer = std::make_shared<CE::ITimer>(30); //
 
         traps.push_back(trap);
         pool.agregarPool(trap); // Add to pool for rendering and collision
@@ -463,7 +478,7 @@ namespace IVJ
                 directionToPlayer = directionToPlayer.normalizacion();
                 CE::Vector2D projectileVel = directionToPlayer.escala(150.f); // projectile speed
 
-                // Create projectile
+                // Create projectile (similar to bullets - not marked as ENEMY)
                 auto projectile = std::make_shared<Entidad>();
                 projectile->setPosicion(bossPos.x, bossPos.y);
                 projectile->getTransformada()->velocidad = projectileVel;
@@ -473,14 +488,15 @@ namespace IVJ
                                  16, 16, 1.f))
                           .addComponente(std::make_shared<CE::IBoundingBox>(
                                  CE::Vector2D{16.f, 16.f}))
-                          .addComponente(std::make_shared<CE::ITimer>(120)); // 2 seconds lifetime
+                          .addComponente(std::make_shared<CE::ITimer>(180)); // 3 seconds lifetime
+                projectile->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PROJECTILE));
 
                 projectile->getStats()->hp = 1;
                 projectile->getStats()->damage = behavior->rangedAttackDamage;
-                projectile->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY)); // enemy projectile
+                // No entity type component - projectiles are just projectiles, not enemies
 
                 bossProjectiles.push_back(projectile);
-                pool.agregarPool(projectile); // Add to pool for rendering and collision
+                pool.agregarPool(projectile); // Add to pool for rendering
 
                 behavior->currentProjectilesInBurst++;
                 CE::printDebug("[BOSS] Fired projectile " + std::to_string(behavior->currentProjectilesInBurst) +
@@ -579,12 +595,8 @@ namespace IVJ
                 shouldRemove = true;
 
                 // Decrease trap counter
-                if (boss->estaVivo())
-                {
-                    auto behavior = boss->getComponente<IBossBhvrMirage>();
-                    behavior->currentTrapsDeployed--;
-                }
-
+                auto behavior = boss->getComponente<IBossBhvrMirage>();
+                behavior->currentTrapsDeployed--;
                 CE::printDebug("[BOSS] Player triggered trap!");
             }
 

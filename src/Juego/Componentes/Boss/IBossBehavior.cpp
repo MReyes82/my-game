@@ -16,7 +16,7 @@ namespace IVJ
         isWindingUp{false},
         hasLandedAttack{false},
         didTeleport{false},
-        rangedKeepDistanceRange{300.0f},
+        rangedKeepDistanceRange{250.0f},
         currentBurstCount{0},
         currentProjectilesInBurst{0},
         isShootingBurst{false}
