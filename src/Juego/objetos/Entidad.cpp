@@ -141,7 +141,7 @@ namespace IVJ
     }
 
     // apply damage if the entity has been hit
-    void Entidad::checkAndApplyDamage(std::uint8_t damage)
+    void Entidad::checkAndApplyDamage(const int damage)
     {
         // assume it has IStats component, since every object has it (declared in constructor)
         if (hasBeenHit)

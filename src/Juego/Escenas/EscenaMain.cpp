@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <Juego/Maquinas/GameStates/EnemyStates.hpp>
 #include <Juego/Maquinas/GameStates/PlayerStates.hpp>
-
-#include "Juego/Maquinas/JugadorFSM/IdleFSM.hpp"
 #include "Juego/objetos/Entidad.hpp"
 #include "Juego/Sistemas/Sistemas.hpp"
 #include "Motor/Camaras/CamarasGestor.hpp"
@@ -12,6 +10,7 @@
 #include "Motor/Primitivos/GestorEscenas.hpp"
 #include "Motor/Render/Render.hpp"
 #include "Overlay/Overlay.hpp"
+#include "Juego/Sistemas/Boss/SistemasBosses.h"
 
 #define SECONDS_ 60
 #define MINUTES_ 3600
@@ -20,6 +19,8 @@
 
 namespace IVJ
 {
+    std::shared_ptr<Entidad> boss; // global variable for testing boss systems
+
     void EscenaMain::initPlayerPointer()
     {
         CE::GestorAssets::Get().agregarTextura("hojaPlayer", ASSETS "/sprites/player/player_sprite.png",
@@ -108,7 +109,7 @@ namespace IVJ
 
             enemy->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
             enemy->addComponente(std::make_shared<CE::ITimer>(SECONDS_ * 1)); // default timer, used for the attacking animation timing
-            enemy->damageTimer = std::make_shared<CE::ITimer>(30); // 15 frames of red flash on damage
+            enemy->damageTimer = std::make_shared<CE::ITimer>(30); // 30 frames of red flash on damage
 
             objetos.agregarPool(enemy);
         }
@@ -175,6 +176,8 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirage(test).png",
+                                                      CE::Vector2D{0, 0}, CE::Vector2D{64.f, 64.f});
 
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
@@ -232,6 +235,10 @@ namespace IVJ
         //UIsceneOverlayElements.setWeapon(player->getComponente<CE::IWeapon>()->type);
         sceneOverlay = std::make_shared<OverlayMain>(UIsceneOverlayElements, player);
         newRoundTextTimer.max_frame = 5 * SECONDS_;
+
+        boss = std::make_shared<Entidad>();
+        MirageInit(boss, spawnPositions);
+        objetos.agregarPool(boss);
 
         newInstance = false;
         gameState = true;
@@ -315,7 +322,7 @@ namespace IVJ
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        SystemFollowPlayer(enemies, player, dt);
+        //SystemFollowPlayer(enemies, player, dt);
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
         checkRoundEnd();
@@ -339,6 +346,15 @@ namespace IVJ
         processPlayerKnifeAttack(enemies);
         // Handle enemy attacks on the player via system
         SystemHandleEnemyAttacks(player, enemies);
+
+        // Update systems related to bosses (boss uses direct velocity control like enemies)
+        if (boss->estaVivo())
+        {
+            BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
+            BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);
+            BSysUpdateTraps(bossTraps, boss, player, dt);
+        }
+
 
         // Clean up dead objects from pool
         objetos.borrarPool();
@@ -462,10 +478,13 @@ namespace IVJ
         {
             CE::Render::Get().AddToDraw(*obj);
         }
+
+
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 
-        if (newRoundTextTimer.frame_actual <= newRoundTextTimer.max_frame && shouldShowNewRoundText)
+        if (newRoundTextTimer.frame_actual <= newRoundTextTimer.max_frame && shouldShowNewRoundText
+            && currentRound > 1)
         {
             //CE::printDebug("DRAW ROUND TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getRoundText());

@@ -42,7 +42,7 @@ namespace CE
         LOOT_UTILITY,
         PROJECTILE,
         STATIC,
-        DYNAMIC
+        DYNAMIC,
     };
 
     class IComponentes
@@ -89,12 +89,11 @@ namespace CE
             ~IStats()override{};
             // floar players and enemies
             //8bits = 255 maximo
-            std::uint8_t hp;
-            std::uint8_t hp_max;
-            std::uint8_t damage;
+            int hp;
+            int hp_max;
+            int damage;
             unsigned int score;// for player
             float maxSpeed; // for enemies
-            std::uint8_t agi;
     };
 
     class ITexto : public IComponentes
