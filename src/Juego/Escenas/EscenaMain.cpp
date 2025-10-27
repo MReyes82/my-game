@@ -351,7 +351,7 @@ namespace IVJ
         if (boss->estaVivo())
         {
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
-            BSysUpdateProjectiles(bossProjectiles, player, dt);
+            BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);
             BSysUpdateTraps(bossTraps, boss, player, dt);
         }
 

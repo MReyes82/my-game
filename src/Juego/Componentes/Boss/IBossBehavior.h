@@ -31,8 +31,11 @@ namespace IVJ
 
         ATTACK_PHASE currentAttackPhase;
         MELEE_ATTACK_TYPE currentMeleeAttack;
-        std::shared_ptr<CE::ITimer> attackModeTimer; // Timer to switch between melee and ranged phases
-        int attackModeSwitchThreshold; // Threshold hp percentage to switch modes
+        std::shared_ptr<CE::ITimer> attackModeTimer; // Timer to switch between melee and ranged phases (3 minutes)
+
+        // HP threshold tracking for mode changes (10% intervals)
+        int lastHpThresholdCrossed;  // Last HP threshold that triggered a mode change (in percentage: 90, 80, 70, etc.)
+        int hpThresholdInterval;     // Interval for HP thresholds (default: 10%)
 
         int currentTrapsDeployed;
         int maxTrapsAllowed;

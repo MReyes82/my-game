@@ -26,7 +26,10 @@ namespace IVJ
     [[maybe_unused]] void BSysMrgMaintainDistance(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player,
                                                   float distance, float worldWidth, float worldHeight);
     [[maybe_unused]] void BSysUpdateProjectiles(std::vector<std::shared_ptr<Entidad>>& bossProjectiles,
-                                                std::shared_ptr<Entidad>& player, float dt);
+                               std::shared_ptr<Entidad>& boss,
+                               std::vector<std::shared_ptr<Entidad>>& bossTraps,
+                               std::shared_ptr<Entidad>& player,
+                               CE::Pool& pool, float dt);
     [[maybe_unused]] void BSysUpdateTraps(std::vector<std::shared_ptr<Entidad>>& bossTraps,
                                           std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float dt);
 }

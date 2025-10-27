@@ -7,6 +7,8 @@ namespace IVJ
     IBossBhvrMirage::IBossBhvrMirage() :
         currentAttackPhase{MELEE},
         currentMeleeAttack{NONE},
+        lastHpThresholdCrossed{100},
+        hpThresholdInterval{10},
         currentTrapsDeployed{0},
         maxTrapsAllowed{10},
         meleeAttackDamage{1},
@@ -30,12 +32,16 @@ namespace IVJ
         rangedAttackTimer = std::make_shared<CE::ITimer>(180);  // 3 seconds at 60 FPS
         projectileBurstTimer = std::make_shared<CE::ITimer>(30);  // 30 frames between projectiles
 
+        // Attack mode switch timer (3 minutes at 60 FPS)
+        attackModeTimer = std::make_shared<CE::ITimer>(10800);  // 3 * 60 * 60 = 10800 frames
+
         // Reset all timers to 0
         meleeAttackCooldownTimer->frame_actual = 0;
         simpleMeleeWindupTimer->frame_actual = 0;
         quickMeleeWindupTimer->frame_actual = 0;
         rangedAttackTimer->frame_actual = 0;
         projectileBurstTimer->frame_actual = 0;
+        attackModeTimer->frame_actual = 0;
     }
 
 }

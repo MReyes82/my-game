@@ -3,8 +3,6 @@
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include <random>
 
-#include "Motor/Utils/Lerp.hpp"
-
 namespace IVJ
 {
     // system to adjust the stats of the boss based on its type
@@ -22,8 +20,7 @@ namespace IVJ
                     CE::printDebug("[SISTEMAS BOSS] Error: boss behavior component not found for Mirage boss");
                     return;
                 }
-
-                stats->hp = 10;
+                stats->hp = 100;
                 stats->hp_max = stats->hp;
                 stats->damage = bossBehaviorComp->rangedAttackDamage; // projectile phase is default
                 stats->maxSpeed = baseSpeed * 1.2f;
@@ -274,10 +271,12 @@ namespace IVJ
         {
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
+                boss->getStats()->maxSpeed = 140;
                 return BSysMrgHandleSimpleAttackWindup(boss, player, distanceToPlayer);
             }
-            else if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
+            if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
             {
+                boss->getStats()->maxSpeed = 110;
                 return BSysMrgHandleQuickAttackWindup(boss, player, distanceToPlayer);
             }
 
@@ -381,10 +380,10 @@ namespace IVJ
     }
 
     /*
-     * Helper function to create a trap at boss's current position
+     * Helper function to create a trap at a specified position (or boss position if not specified)
      */
     void BSysMrgCreateTrap(std::shared_ptr<Entidad>& boss, std::vector<std::shared_ptr<Entidad>>& traps,
-                           CE::Pool& pool)
+                           CE::Pool& pool, const CE::Vector2D* customPosition = nullptr)
     {
         auto behavior = boss->getComponente<IBossBhvrMirage>();
 
@@ -396,15 +395,15 @@ namespace IVJ
             return;
         }
 
-        // Get boss's current position for trap placement
-        const auto& bossPos = boss->getTransformada()->posicion;
+        // Get trap placement position (custom position or boss's current position)
+        const CE::Vector2D trapPos = customPosition ? *customPosition : boss->getTransformada()->posicion;
 
         // Check if new trap would be too close to existing traps (prevent clustering)
         const float minTrapDistance = 60.f;
         for (const auto& existingTrap : traps)
         {
-            const auto& trapPos = existingTrap->getTransformada()->posicion;
-            CE::Vector2D diff = bossPos - trapPos;
+            const auto& existingTrapPos = existingTrap->getTransformada()->posicion;
+            CE::Vector2D diff = trapPos - existingTrapPos;
             float distance = diff.magnitud();
 
             if (distance < minTrapDistance)
@@ -415,9 +414,9 @@ namespace IVJ
             }
         }
 
-        // Create trap entity at boss's current position
+        // Create trap entity at specified position
         auto trap = std::make_shared<Entidad>();
-        trap->setPosicion(bossPos.x, bossPos.y);
+        trap->setPosicion(trapPos.x, trapPos.y);
 
         // Add sprite component using the trap texture
         trap->addComponente(std::make_shared<CE::ISprite>(
@@ -440,8 +439,8 @@ namespace IVJ
         pool.agregarPool(trap); // Add to pool for rendering and collision
         behavior->currentTrapsDeployed++;
 
-        CE::printDebug("[BOSS] Trap deployed at (" + std::to_string(bossPos.x) + ", " +
-                      std::to_string(bossPos.y) + "). Total traps: " +
+        CE::printDebug("[BOSS] Trap deployed at (" + std::to_string(trapPos.x) + ", " +
+                      std::to_string(trapPos.y) + "). Total traps: " +
                       std::to_string(behavior->currentTrapsDeployed));
     }
 
@@ -537,12 +536,16 @@ namespace IVJ
      * System to update boss projectiles (collision, lifetime)
      */
     void BSysUpdateProjectiles(std::vector<std::shared_ptr<Entidad>>& bossProjectiles,
-                               std::shared_ptr<Entidad>& player, float dt)
+                               std::shared_ptr<Entidad>& boss,
+                               std::vector<std::shared_ptr<Entidad>>& bossTraps,
+                               std::shared_ptr<Entidad>& player,
+                               CE::Pool& pool, float dt)
     {
         for (auto it = bossProjectiles.begin(); it != bossProjectiles.end(); )
         {
             auto& projectile = *it;
             bool shouldRemove = false;
+            bool shouldConvertToTrap = false;
 
             projectile->onUpdate(dt);
 
@@ -559,11 +562,38 @@ namespace IVJ
             if (projectile->tieneComponente<CE::ITimer>() &&
                 projectile->hasTimerReachedMax(projectile->getComponente<CE::ITimer>()))
             {
+                // 50% chance to convert expired projectile into a trap
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_int_distribution<> dis(0, 99);
+
+                if (dis(gen) < 50)
+                {
+                    shouldConvertToTrap = true;
+                    CE::printDebug("[BOSS] Projectile expired - converting to trap!");
+                }
+                else
+                {
+                    CE::printDebug("[BOSS] Projectile expired - dissipating");
+                }
+
                 shouldRemove = true;
             }
 
             if (shouldRemove)
             {
+                // Convert to trap if needed
+                if (shouldConvertToTrap)
+                {
+                    const auto& projectilePos = projectile->getTransformada()->posicion;
+                    CE::printDebug("[BOSS] Attempting to convert projectile at (" +
+                                  std::to_string(projectilePos.x) + ", " +
+                                  std::to_string(projectilePos.y) + ") to trap");
+
+                    // Use the existing trap creation function with custom position
+                    BSysMrgCreateTrap(boss, bossTraps, pool, &projectilePos);
+                }
+
                 projectile->getStats()->hp = 0; // Mark for deletion by pool cleanup
                 it = bossProjectiles.erase(it);
             }
@@ -629,6 +659,84 @@ namespace IVJ
     }
 
     /*
+     * System to check and handle attack mode switching based on HP thresholds or timer
+     * Returns true if mode was changed
+     */
+    bool BSysMrgCheckModeSwitch(std::shared_ptr<Entidad>& boss)
+    {
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+        const auto stats = boss->getStats();
+
+        // Calculate current HP percentage
+        float hpPercentage = (static_cast<float>(stats->hp) / static_cast<float>(stats->hp_max)) * 100.0f;
+
+        bool shouldSwitch = false;
+        std::string switchReason;
+
+        // Calculate which threshold the boss is currently at (rounded down to nearest interval)
+        int currentThreshold = static_cast<int>(hpPercentage / static_cast<float>(behavior->hpThresholdInterval)) * behavior->hpThresholdInterval;
+
+        // Check if we've crossed a new HP threshold (going downward)
+        if (currentThreshold < behavior->lastHpThresholdCrossed)
+        {
+            behavior->lastHpThresholdCrossed = currentThreshold;
+            shouldSwitch = true;
+            switchReason = "HP dropped to " + std::to_string(currentThreshold) + "%";
+        }
+
+        // Update attack mode timer
+        if (!boss->hasTimerReachedMax(behavior->attackModeTimer.get()))
+        {
+            behavior->attackModeTimer->frame_actual++;
+        }
+
+        // Check if timer has reached 3 minutes
+        if (boss->hasTimerReachedMax(behavior->attackModeTimer.get()) && !shouldSwitch)
+        {
+            shouldSwitch = true;
+            switchReason = "3 minute timer expired";
+        }
+
+        // If mode should switch, toggle between MELEE and RANGED
+        if (shouldSwitch)
+        {
+            auto oldPhase = behavior->currentAttackPhase;
+
+            if (behavior->currentAttackPhase == IBossBhvrMirage::ATTACK_PHASE::MELEE)
+            {
+                behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
+                boss->getStats()->maxSpeed = boss->getStats()->maxSpeed = 95; // set to normal speed if ranged
+            }
+            else
+            {
+                behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::MELEE;
+                boss->getStats()->maxSpeed = boss->getStats()->maxSpeed = 105; // set to faster speed if melee
+            }
+
+            // Reset attack mode timer
+            boss->resetTimer(behavior->attackModeTimer.get());
+
+            // Reset attack states for clean transition
+            behavior->isWindingUp = false;
+            behavior->hasLandedAttack = false;
+            behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+            behavior->isShootingBurst = false;
+            behavior->currentBurstCount = 0;
+            behavior->currentProjectilesInBurst = 0;
+
+            CE::printDebug("[BOSS MODE SWITCH] Reason: " + switchReason +
+                          " | Old: " + std::string(oldPhase == IBossBhvrMirage::ATTACK_PHASE::MELEE ? "MELEE" : "RANGED") +
+                          " -> New: " + std::string(behavior->currentAttackPhase == IBossBhvrMirage::ATTACK_PHASE::MELEE ? "MELEE" : "RANGED") +
+                          " | Current HP: " + std::to_string(stats->hp) + "/" + std::to_string(stats->hp_max) +
+                          " (" + std::to_string(static_cast<int>(hpPercentage)) + "%)");
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /*
      * Main system to handle the movement behavior of the Mirage boss
      */
     void BSysMrgMovement(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player,
@@ -636,6 +744,9 @@ namespace IVJ
                          std::vector<std::shared_ptr<Entidad>>& traps,
                          CE::Pool& pool, float worldWidth, float worldHeight, float dt)
     {
+        // Check if boss should switch attack modes (based on HP thresholds or timer)
+        BSysMrgCheckModeSwitch(boss);
+
         auto behavior = boss->getComponente<IBossBhvrMirage>();
         auto currentAttackPhase = behavior->currentAttackPhase;
 
@@ -701,7 +812,7 @@ namespace IVJ
 
                 if (dis(gen) < 30)
                 {
-                    BSysMrgCreateTrap(boss, traps, pool);
+                    BSysMrgCreateTrap(boss, traps, pool, nullptr);
                 }
             }
         }
