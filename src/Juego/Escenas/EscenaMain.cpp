@@ -322,7 +322,7 @@ namespace IVJ
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        //SystemFollowPlayer(enemies, player, dt);
+        SystemFollowPlayer(enemies, player, dt);
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
         checkRoundEnd();
@@ -348,7 +348,7 @@ namespace IVJ
         SystemHandleEnemyAttacks(player, enemies);
 
         // Update systems related to bosses (boss uses direct velocity control like enemies)
-        if (boss->estaVivo())
+        if (boss->estaVivo() && false)
         {
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
             BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);

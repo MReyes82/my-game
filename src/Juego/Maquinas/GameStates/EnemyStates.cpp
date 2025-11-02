@@ -16,15 +16,15 @@ namespace IVJ
 
     FSM *IdleEnemyState::onInputs(const CE::IControl &control, const Entidad &obj)
     {
-        // check here if the enemy should change state, since it cannot enter the onInputs method
-        const auto& transform =  *obj.getComponente<CE::ITransform>();
+        // check here if the enemy should change state. Force entrance by a direct call to this method on the outer scope.
+        const auto& transform =  *obj.getTransformadaC(); // call to the const getter, since the parameter obj is const
         if (obj.getCollidedWithAnotherEntity())
         {
-            return new AttackingEnemyState( !obj.getIsEntityFacingRight() );
+            return new AttackingEnemyState(!obj.getIsEntityFacingRight());
         }
         if (transform.velocidad.x != 0.f || transform.velocidad.y != 0.f)
         {
-            return new MovingEnemyState( !obj.getIsEntityFacingRight() );
+            return new MovingEnemyState(!obj.getIsEntityFacingRight());
         }
 
         return nullptr;
@@ -97,7 +97,7 @@ namespace IVJ
 
     FSM* AttackingEnemyState::onInputs(const CE::IControl &control, const Entidad &obj)
     {
-        const auto& transform =  *obj.getComponente<CE::ITransform>();
+        const auto& transform =  *obj.getTransformadaC();
 
         if (obj.getCollidedWithAnotherEntity())
             return nullptr;
@@ -184,7 +184,7 @@ namespace IVJ
 
     FSM* MovingEnemyState::onInputs(const CE::IControl &control, const Entidad &obj)
     {
-        const auto& transform =  *obj.getComponente<CE::ITransform>();
+        const auto& transform =  *obj.getTransformadaC();
 
         if (obj.getCollidedWithAnotherEntity())
         {

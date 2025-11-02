@@ -59,6 +59,13 @@ namespace CE
             {
                 return transform;
             }
+            // const modifier for the return type, so it can be accessed
+            // from const contexts
+            const std::shared_ptr<ITransform>& getTransformadaC() const
+            {
+                return transform;
+            }
+
             std::shared_ptr<IStats>& getStats()
             {
                 return stats;
