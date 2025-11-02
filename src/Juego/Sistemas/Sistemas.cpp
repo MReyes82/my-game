@@ -869,19 +869,9 @@ namespace IVJ
 
             // 2. Check collision against each enemy
             for (auto& enemy : enemies)
-            {
-                /*// Skip if enemy doesn't have entity type component
-                if (!enemy->tieneComponente<CE::IEntityType>())
-                    continue;
-
-                // Skip non-enemy entities
-                if (enemy->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
-                    continue;*/
-
-                // Skip enemies with no HP left
+            {// Skip enemies with no HP left
                 if (enemy->getStats()->hp <= 0)
                     continue;
-
                 // If bullet overlaps an enemy's bounding box
                 if (SistemaColAABBMid(*bullet, *enemy, true))
                 {

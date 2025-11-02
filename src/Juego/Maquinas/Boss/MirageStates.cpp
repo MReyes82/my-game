@@ -1,36 +1,32 @@
-#include "EnemyStates.hpp"
-#include <SFML/Graphics.hpp>
-#include <Motor/Utils/Utils.hpp>
-#include <SFML/Graphics.hpp>
+#include "MirageStates.h"
 
-#include "PlayerStates.hpp"
+// constant declared here because I'm too lazy to modify the logic of the FSM base class
+#define FRAME_OFFSET 32.f
 
 namespace IVJ
 {
-    IdleEnemyState::IdleEnemyState(bool flip)
-        : FSM{}, shouldFlip{flip}
+    MrgIdleState::MrgIdleState(bool flip)
+        : FSM {}, shouldFlip{flip}
     {
-        nombre = "IdleEnemyState";
+        nombre = "MrgIdleState";
         CE::printDebug("" + nombre + "\n");
     }
 
-    FSM *IdleEnemyState::onInputs(const CE::IControl &control, const Entidad &obj)
+    FSM* MrgIdleState::onInputs(const CE::IControl &control, const Entidad &obj)
     {
-        // check here if the enemy should change state. Force entrance by a direct call to this method on the outer scope.
-        const auto& transform =  *obj.getTransformadaC(); // call to the const getter, since the parameter obj is const
+        const auto& transform =  *obj.getTransformadaC();
         if (obj.getCollidedWithAnotherEntity())
         {
-            return new AttackingEnemyState(!obj.getIsEntityFacingRight());
+            return new MrgAttackState(!obj.getIsEntityFacingRight());
         }
         if (transform.velocidad.x != 0.f || transform.velocidad.y != 0.f)
         {
-            return new MovingEnemyState(!obj.getIsEntityFacingRight());
+            return new MrgMovingState(!obj.getIsEntityFacingRight());
         }
 
         return nullptr;
     }
-
-    void IdleEnemyState::flipSprite(const Entidad &obj)
+    void MrgIdleState::flipSprite(const Entidad &obj)
     {
         auto c_sprite = obj.getComponente<CE::ISprite>();
 
@@ -45,7 +41,7 @@ namespace IVJ
         sprite->setOrigin(origin);
     }
 
-    void IdleEnemyState::onEntrar(const Entidad &obj)
+    void MrgIdleState::onEntrar(const Entidad &obj)
     {
         auto c_sprite = obj.getComponente<CE::ISprite>();
         sprite = &c_sprite->m_sprite;
@@ -53,64 +49,72 @@ namespace IVJ
         sprite_height = c_sprite->height;
 
         animation_frames[0] = {frame1pos, idleSpriteRow};
-        animation_frames[1] = {frame2pos, idleSpriteRow};
-        animation_frames[2] = {frame3pos, idleSpriteRow};
-        animation_frames[3] = {frame4pos, idleSpriteRow};
+        animation_frames[1] = {frame2pos + FRAME_OFFSET, idleSpriteRow};
+        animation_frames[2] = {frame3pos + FRAME_OFFSET * 2, idleSpriteRow};
+        animation_frames[3] = {frame4pos + FRAME_OFFSET * 3, idleSpriteRow};
 
-        max_time = 0.2f;
+        max_time = 0.8f;
         time = max_time;
         current_id = 0;
 
         flipSprite(obj);
     }
 
-    void IdleEnemyState::onUpdate(const Entidad &obj, float dt)
+    void MrgIdleState::onSalir(const Entidad& obj)
+    {
+        //CE::printDebug("Exiting " + nombre + "\n");
+    }
+
+    void MrgIdleState::onUpdate(const Entidad &obj, float dt)
     {
         time = time - 1 * dt;
 
-        if (time <= 0)
+        if (time <= 0.f)
         {
             sprite->setTextureRect(
                 sf::IntRect{
-                    {// position
+                    {
                         static_cast<int>(animation_frames[current_id % NUMBER_OF_ANIMATION_FRAMES].x),
                         static_cast<int>(animation_frames[current_id % NUMBER_OF_ANIMATION_FRAMES].y)
                     },
-                    {// size
+                    {
                         sprite_width,
                         sprite_height
                     }
                 });
-
-            current_id++;
             time = max_time;
+            current_id++;
         }
     }
 
-    AttackingEnemyState::AttackingEnemyState(bool flip)
-        : FSM{}, shouldFlip{flip}
+    MrgAttackState::MrgAttackState(bool flip)
+        : FSM {}, shouldFlip{flip}
     {
-        nombre = "AttackingEnemyState";
+        nombre =  "MrgAttackState";
         CE::printDebug("" + nombre + "\n");
     }
 
-    FSM* AttackingEnemyState::onInputs(const CE::IControl &control, const Entidad &obj)
+    FSM* MrgAttackState::onInputs(const CE::IControl& control, const Entidad& obj)
     {
         const auto& transform =  *obj.getTransformadaC();
 
-        if (obj.getCollidedWithAnotherEntity())
+        if (!obj.getCollidedWithAnotherEntity())
+        {
             return nullptr;
-        // check if the entity is moving
+        }
         if (transform.velocidad.x != 0.f || transform.velocidad.y != 0.f)
-            return new MovingEnemyState(!obj.getIsEntityFacingRight());
-        // check if it is not moving
+        {
+            return new MrgMovingState(!obj.getIsEntityFacingRight());
+        }
         if (transform.velocidad.x == 0.f && transform.velocidad.y == 0.f)
-            return new IdleEnemyState(!obj.getIsEntityFacingRight());
+        {
+            return new MrgIdleState(!obj.getIsEntityFacingRight());
+        }
 
         return nullptr;
     }
 
-    void AttackingEnemyState::flipSprite(const Entidad &obj)
+    void MrgAttackState::flipSprite(const Entidad &obj)
     {
         auto c_sprite = obj.getComponente<CE::ISprite>();
 
@@ -125,17 +129,17 @@ namespace IVJ
         sprite->setOrigin(origin);
     }
 
-    void AttackingEnemyState::onEntrar(const Entidad &obj)
+    void MrgAttackState::onEntrar(const Entidad &obj)
     {
         auto c_sprite = obj.getComponente<CE::ISprite>();
         sprite = &c_sprite->m_sprite;
         sprite_width = c_sprite->width;
         sprite_height = c_sprite->height;
 
-        animation_frames[0] = {frame1pos, attackSpriteRow};
-        animation_frames[1] = {frame2pos, attackSpriteRow};
-        animation_frames[2] = {frame3pos, attackSpriteRow};
-        animation_frames[3] = {frame4pos, attackSpriteRow};
+        animation_frames[0] = {frame1pos + FRAME_OFFSET, attackSpriteRow};
+        animation_frames[1] = {frame2pos + FRAME_OFFSET, attackSpriteRow};
+        animation_frames[2] = {frame3pos + FRAME_OFFSET, attackSpriteRow};
+        animation_frames[3] = {frame4pos + FRAME_OFFSET, attackSpriteRow};
 
         max_time = 0.2f;
         time = max_time;
@@ -144,61 +148,61 @@ namespace IVJ
         flipSprite(obj);
     }
 
-    void AttackingEnemyState::onSalir(const Entidad &obj)
+    void MrgAttackState::onSalir(const Entidad& obj)
     {
         //CE::printDebug("Exiting " + nombre + "\n");
     }
 
-    void AttackingEnemyState::onUpdate(const Entidad &obj, float dt)
+    void MrgAttackState::onUpdate(const Entidad &obj, float dt)
     {
         time = time - 1 * dt;
 
-        if (time <= 0)
+        if (time <= 0.f)
         {
             sprite->setTextureRect(
                 sf::IntRect{
-                    {// position
+                    {
                         static_cast<int>(animation_frames[current_id % NUMBER_OF_ANIMATION_FRAMES].x),
                         static_cast<int>(animation_frames[current_id % NUMBER_OF_ANIMATION_FRAMES].y)
                     },
-                    {// size
+                    {
                         sprite_width,
                         sprite_height
                     }
                 });
-
-            current_id++;
             time = max_time;
+            current_id++;
         }
     }
 
-    MovingEnemyState::MovingEnemyState(bool flip)
-        : FSM{}, shouldFlip{flip}
+    MrgMovingState::MrgMovingState(bool flip)
+        : FSM {}, shouldFlip{flip}
     {
-        nombre =  "MovingEnemyState";
+        nombre = "MrgMovingState";
         CE::printDebug("" + nombre + "\n");
     }
 
-    FSM* MovingEnemyState::onInputs(const CE::IControl &control, const Entidad &obj)
+
+    FSM* MrgMovingState::onInputs(const CE::IControl& control, const Entidad& obj)
     {
         const auto& transform =  *obj.getTransformadaC();
 
         if (obj.getCollidedWithAnotherEntity())
         {
-            return new AttackingEnemyState(!obj.getIsEntityFacingRight());
+            return new MrgAttackState(!obj.getIsEntityFacingRight());
         }
-
         if (transform.velocidad.x == 0.f && transform.velocidad.y == 0.f)
         {
-            return new IdleEnemyState(!obj.getIsEntityFacingRight());
+            return new MrgIdleState(!obj.getIsEntityFacingRight());
         }
 
         return nullptr;
     }
 
-    void MovingEnemyState::flipSprite(const Entidad &obj)
+    void MrgMovingState::flipSprite(const Entidad &obj)
     {
         auto c_sprite = obj.getComponente<CE::ISprite>();
+
         if (shouldFlip)
             sprite->setScale({-c_sprite->escala, c_sprite->escala});
         else
@@ -210,17 +214,17 @@ namespace IVJ
         sprite->setOrigin(origin);
     }
 
-    void MovingEnemyState::onEntrar(const Entidad &obj)
+    void MrgMovingState::onEntrar(const Entidad &obj)
     {
         auto c_sprite = obj.getComponente<CE::ISprite>();
         sprite = &c_sprite->m_sprite;
         sprite_width = c_sprite->width;
         sprite_height = c_sprite->height;
 
-        animation_frames[0] = {frame1pos, movingSpriteRow};
-        animation_frames[1] = {frame2pos, movingSpriteRow};
-        animation_frames[2] = {frame3pos, movingSpriteRow};
-        animation_frames[3] = {frame4pos, movingSpriteRow};
+        animation_frames[0] = {frame1pos + FRAME_OFFSET, movingSpriteRow};
+        animation_frames[1] = {frame2pos + FRAME_OFFSET, movingSpriteRow};
+        animation_frames[2] = {frame3pos + FRAME_OFFSET, movingSpriteRow};
+        animation_frames[3] = {frame4pos + FRAME_OFFSET, movingSpriteRow};
 
         max_time = 0.2f;
         time = max_time;
@@ -229,32 +233,30 @@ namespace IVJ
         flipSprite(obj);
     }
 
-    void MovingEnemyState::onSalir(const Entidad &obj)
+    void MrgMovingState::onSalir(const Entidad& obj)
     {
         //CE::printDebug("Exiting " + nombre + "\n");
     }
 
-    void MovingEnemyState::onUpdate(const Entidad &obj, float dt)
+    void MrgMovingState::onUpdate(const Entidad &obj, float dt)
     {
         time = time - 1 * dt;
 
-        if (time <= 0)
+        if (time <= 0.f)
         {
             sprite->setTextureRect(
                 sf::IntRect{
-                    {// position
+                    {
                         static_cast<int>(animation_frames[current_id % NUMBER_OF_ANIMATION_FRAMES].x),
                         static_cast<int>(animation_frames[current_id % NUMBER_OF_ANIMATION_FRAMES].y)
                     },
-                    {// size
+                    {
                         sprite_width,
                         sprite_height
                     }
                 });
-
-            current_id++;
             time = max_time;
+            current_id++;
         }
     }
 }
-

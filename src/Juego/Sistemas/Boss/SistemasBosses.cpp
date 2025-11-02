@@ -3,6 +3,8 @@
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include <random>
 
+#include "Juego/Maquinas/Boss/MirageStates.h"
+
 namespace IVJ
 {
     // system to adjust the stats of the boss based on its type
@@ -51,15 +53,21 @@ namespace IVJ
             64, 64, 1.f))
         .addComponente(std::make_shared<CE::IBoundingBox>(
             CE::Vector2D{64.f, 64.f}))
-        // this is just a patch so the boss is recognized as an enemy for collision systems, bullets systemsetc.
-        .addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+        // this is just a patch so the boss is recognized as an enemy for collision systems, bullets systems etc.
+        .addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY))
+        .addComponente(std::make_shared<IMaquinaEstado>()) // componentes needed for FSM, same as enemies
+        .addComponente(std::make_shared<CE::IControl>());
+
+        auto& fsm_init = boss->getComponente<IMaquinaEstado>()->fsm;
+        fsm_init = std::make_shared<MrgIdleState>(true);
+        fsm_init->onEntrar(*boss);
 
         // Initialize damage timer for damage animation
         boss->damageTimer = std::make_shared<CE::ITimer>(30); // 30 frames of red flash on damage
-
         // Set boss to ranged phase for testing
         auto behavior = boss->getComponente<IBossBhvrMirage>();
         behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
+        boss->setIsEntityFacingRight(true);
 
         CE::printDebug("[BOSS INIT] Mirage boss initialized at position (" +
                       std::to_string(spawnPos.x) + ", " + std::to_string(spawnPos.y) + ") in RANGED phase");
@@ -76,7 +84,7 @@ namespace IVJ
     }
     /*
      * Helper function to move boss towards player
-     * Directly sets velocity like enemy movement (no IControl)
+     * Directly sets velocity like enemy movement
      */
     void BSysMoveTowardsPlayer(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player)
     {

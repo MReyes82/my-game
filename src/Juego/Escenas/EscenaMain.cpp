@@ -176,8 +176,9 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
-        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirage(test).png",
-                                                      CE::Vector2D{0, 0}, CE::Vector2D{64.f, 64.f});
+        //
+        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/MirageSpriteSheet.png",
+                                                      CE::Vector2D{0, 0}, CE::Vector2D{264.f, 64.f});
 
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
@@ -322,7 +323,7 @@ namespace IVJ
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        SystemFollowPlayer(enemies, player, dt);
+        //SystemFollowPlayer(enemies, player, dt);
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
         checkRoundEnd();
