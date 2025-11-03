@@ -53,6 +53,7 @@ namespace IVJ
         bool isWindingUp;  // Is the boss currently winding up an attack?
         bool hasLandedAttack; // Has the current attack landed?
         bool didTeleport; // Did the boss teleport for the current attack?
+        bool isExecutingMeleeAttack;  // Flag for FSM to trigger melee attack animation
 
         // Ranged attack properties
         float rangedKeepDistanceRange;  // Distance to maintain from player (~200 units)
@@ -61,6 +62,7 @@ namespace IVJ
         int currentBurstCount;  // Current burst number (0-2, for 3 bursts)
         int currentProjectilesInBurst;  // Current projectile in burst (0-4, for 5 projectiles)
         bool isShootingBurst;  // Is currently shooting a burst of projectiles
+        bool isExecutingRangedAttack;  // Flag for FSM to trigger ranged attack animation
 
     };
 }

@@ -177,8 +177,8 @@ namespace IVJ
         CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         //
-        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/MirageSpriteSheet.png",
-                                                      CE::Vector2D{0, 0}, CE::Vector2D{264.f, 64.f});
+        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirageSprite.png",
+                                                      CE::Vector2D{0, 0}, CE::Vector2D{264.f, 192.f});
 
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
@@ -349,8 +349,9 @@ namespace IVJ
         SystemHandleEnemyAttacks(player, enemies);
 
         // Update systems related to bosses (boss uses direct velocity control like enemies)
-        if (boss->estaVivo() && false)
+        if (boss->estaVivo())
         {
+            boss->inputFSM();
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
             BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);
             BSysUpdateTraps(bossTraps, boss, player, dt);

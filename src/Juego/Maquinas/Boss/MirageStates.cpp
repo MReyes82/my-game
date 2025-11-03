@@ -1,4 +1,5 @@
 #include "MirageStates.h"
+#include "Juego/Componentes/Boss/IBossBehavior.h"
 
 // constant declared here because I'm too lazy to modify the logic of the FSM base class
 #define FRAME_OFFSET 32.f
@@ -15,13 +16,20 @@ namespace IVJ
     FSM* MrgIdleState::onInputs(const CE::IControl &control, const Entidad &obj)
     {
         const auto& transform =  *obj.getTransformadaC();
-        if (obj.getCollidedWithAnotherEntity())
+
+        // Check for melee or ranged attack execution
+        if (obj.tieneComponente<IBossBhvrMirage>())
         {
-            return new MrgAttackState(!obj.getIsEntityFacingRight());
+            auto behavior = obj.getComponente<IBossBhvrMirage>();
+            if (behavior->isExecutingMeleeAttack || behavior->isExecutingRangedAttack)
+            {
+                return new MrgAttackState(obj.getIsEntityFacingRight());
+            }
         }
+
         if (transform.velocidad.x != 0.f || transform.velocidad.y != 0.f)
         {
-            return new MrgMovingState(!obj.getIsEntityFacingRight());
+            return new MrgMovingState(obj.getIsEntityFacingRight());
         }
 
         return nullptr;
@@ -53,7 +61,7 @@ namespace IVJ
         animation_frames[2] = {frame3pos + FRAME_OFFSET * 2, idleSpriteRow};
         animation_frames[3] = {frame4pos + FRAME_OFFSET * 3, idleSpriteRow};
 
-        max_time = 0.8f;
+        max_time = 0.2f;
         time = max_time;
         current_id = 0;
 
@@ -93,22 +101,33 @@ namespace IVJ
         nombre =  "MrgAttackState";
         CE::printDebug("" + nombre + "\n");
     }
-
     FSM* MrgAttackState::onInputs(const CE::IControl& control, const Entidad& obj)
     {
         const auto& transform =  *obj.getTransformadaC();
 
-        if (!obj.getCollidedWithAnotherEntity())
+        // Check if any attack is still active
+        bool isAttacking = false;
+
+        if (obj.tieneComponente<IBossBhvrMirage>())
+        {
+            auto behavior = obj.getComponente<IBossBhvrMirage>();
+            isAttacking = behavior->isExecutingMeleeAttack || behavior->isExecutingRangedAttack;
+        }
+
+        // Stay in attack state if any attack is active
+        if (isAttacking)
         {
             return nullptr;
         }
+
+        // Transition out only when not attacking
         if (transform.velocidad.x != 0.f || transform.velocidad.y != 0.f)
         {
-            return new MrgMovingState(!obj.getIsEntityFacingRight());
+            return new MrgMovingState(obj.getIsEntityFacingRight());
         }
         if (transform.velocidad.x == 0.f && transform.velocidad.y == 0.f)
         {
-            return new MrgIdleState(!obj.getIsEntityFacingRight());
+            return new MrgIdleState(obj.getIsEntityFacingRight());
         }
 
         return nullptr;
@@ -136,10 +155,10 @@ namespace IVJ
         sprite_width = c_sprite->width;
         sprite_height = c_sprite->height;
 
-        animation_frames[0] = {frame1pos + FRAME_OFFSET, attackSpriteRow};
+        animation_frames[0] = {frame1pos, attackSpriteRow};
         animation_frames[1] = {frame2pos + FRAME_OFFSET, attackSpriteRow};
-        animation_frames[2] = {frame3pos + FRAME_OFFSET, attackSpriteRow};
-        animation_frames[3] = {frame4pos + FRAME_OFFSET, attackSpriteRow};
+        animation_frames[2] = {frame3pos + FRAME_OFFSET * 2, attackSpriteRow};
+        animation_frames[3] = {frame4pos + FRAME_OFFSET * 3, attackSpriteRow};
 
         max_time = 0.2f;
         time = max_time;
@@ -187,13 +206,19 @@ namespace IVJ
     {
         const auto& transform =  *obj.getTransformadaC();
 
-        if (obj.getCollidedWithAnotherEntity())
+        // Check for melee or ranged attack execution
+        if (obj.tieneComponente<IBossBhvrMirage>())
         {
-            return new MrgAttackState(!obj.getIsEntityFacingRight());
+            auto behavior = obj.getComponente<IBossBhvrMirage>();
+            if (behavior->isExecutingMeleeAttack || behavior->isExecutingRangedAttack)
+            {
+                return new MrgAttackState(obj.getIsEntityFacingRight());
+            }
         }
+
         if (transform.velocidad.x == 0.f && transform.velocidad.y == 0.f)
         {
-            return new MrgIdleState(!obj.getIsEntityFacingRight());
+            return new MrgIdleState(obj.getIsEntityFacingRight());
         }
 
         return nullptr;
@@ -221,10 +246,10 @@ namespace IVJ
         sprite_width = c_sprite->width;
         sprite_height = c_sprite->height;
 
-        animation_frames[0] = {frame1pos + FRAME_OFFSET, movingSpriteRow};
+        animation_frames[0] = {frame1pos, movingSpriteRow};
         animation_frames[1] = {frame2pos + FRAME_OFFSET, movingSpriteRow};
-        animation_frames[2] = {frame3pos + FRAME_OFFSET, movingSpriteRow};
-        animation_frames[3] = {frame4pos + FRAME_OFFSET, movingSpriteRow};
+        animation_frames[2] = {frame3pos + FRAME_OFFSET * 2, movingSpriteRow};
+        animation_frames[3] = {frame4pos + FRAME_OFFSET * 3, movingSpriteRow};
 
         max_time = 0.2f;
         time = max_time;

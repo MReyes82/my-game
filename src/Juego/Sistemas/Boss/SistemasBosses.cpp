@@ -2,7 +2,6 @@
 #include "../Sistemas.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include <random>
-
 #include "Juego/Maquinas/Boss/MirageStates.h"
 
 namespace IVJ
@@ -117,7 +116,6 @@ namespace IVJ
     bool BSysMrgHandleSimpleAttackWindup(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float distanceToPlayer)
     {
         auto behavior = boss->getComponente<IBossBhvrMirage>();
-        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Yellow);
 
         // Only progress windup timer and stop movement if boss is close enough to the player
         if (distanceToPlayer <= behavior->meleeAttackRange)
@@ -133,18 +131,27 @@ namespace IVJ
                 player->checkAndApplyDamage(behavior->meleeAttackDamage);
                 CE::printDebug("[BOSS] Simple melee attack landed! Dealt " +
                              std::to_string(behavior->meleeAttackDamage) + " damage.");
-                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
 
                 behavior->hasLandedAttack = true;
                 behavior->isWindingUp = false;
                 behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+                behavior->isExecutingMeleeAttack = false;
                 boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
             }
 
             return true; // Attack is actively winding up and boss is in range
         }
 
-        return false; // Let movement system handle positioning
+        // Player moved out of range - cancel the attack
+        CE::printDebug("[BOSS] Simple melee attack cancelled - player out of range");
+        behavior->isWindingUp = false;
+        behavior->hasLandedAttack = false;
+        behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+        behavior->isExecutingMeleeAttack = false;
+        boss->resetTimer(behavior->simpleMeleeWindupTimer.get());
+        boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
+
+        return false; // Attack cancelled, let movement system handle positioning
     }
 
     /*
@@ -157,14 +164,11 @@ namespace IVJ
 
         // Quick attack always stops movement and progresses timer during windup
         BSysStopMovement(boss);
-        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Green);
         behavior->quickMeleeWindupTimer->frame_actual++;
 
         // Attack lands
         if (boss->hasTimerReachedMax(behavior->quickMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
         {
-            boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
-
             // Check if player is still in range
             if (distanceToPlayer <= behavior->meleeAttackRange)
             {
@@ -181,8 +185,10 @@ namespace IVJ
             }
 
             behavior->hasLandedAttack = true;
+            boss->finishedAttackAnimation = true;
             behavior->isWindingUp = false;
             behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+            behavior->isExecutingMeleeAttack = false;
             boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
         }
 
@@ -204,6 +210,7 @@ namespace IVJ
 
         behavior->isWindingUp = true;
         behavior->hasLandedAttack = false;
+        behavior->isExecutingMeleeAttack = true;
         return true;
     }
 
@@ -239,6 +246,7 @@ namespace IVJ
             behavior->isWindingUp = true;
             behavior->hasLandedAttack = false;
             behavior->didTeleport = true;
+            behavior->isExecutingMeleeAttack = true;
             return true;
         }
 
@@ -253,6 +261,7 @@ namespace IVJ
             behavior->isWindingUp = true;
             behavior->hasLandedAttack = false;
             behavior->didTeleport = false;
+            behavior->isExecutingMeleeAttack = true;
             return true;
         }
 
@@ -423,7 +432,7 @@ namespace IVJ
         }
 
         // Create trap entity at specified position
-        auto trap = std::make_shared<Entidad>();
+        auto trap = std::make_shared<IVJ::Entidad>();
         trap->setPosicion(trapPos.x, trapPos.y);
 
         // Add sprite component using the trap texture
@@ -471,6 +480,8 @@ namespace IVJ
         // If we're currently shooting a burst
         if (behavior->isShootingBurst)
         {
+            behavior->isExecutingRangedAttack = true;
+
             // Update burst cadence timer
             behavior->projectileBurstTimer->frame_actual++;
 
@@ -519,6 +530,7 @@ namespace IVJ
                     if (behavior->currentBurstCount >= 3)
                     {
                         behavior->isShootingBurst = false;
+                        behavior->isExecutingRangedAttack = false;
                         behavior->currentBurstCount = 0;
                         boss->resetTimer(behavior->rangedAttackTimer.get());
                         CE::printDebug("[BOSS] Completed all 3 bursts. Resetting ranged attack timer.");
@@ -728,7 +740,9 @@ namespace IVJ
             behavior->isWindingUp = false;
             behavior->hasLandedAttack = false;
             behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+            behavior->isExecutingMeleeAttack = false;
             behavior->isShootingBurst = false;
+            behavior->isExecutingRangedAttack = false;
             behavior->currentBurstCount = 0;
             behavior->currentProjectilesInBurst = 0;
 
