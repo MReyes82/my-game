@@ -21,7 +21,7 @@ namespace IVJ
                     CE::printDebug("[SISTEMAS BOSS] Error: boss behavior component not found for Mirage boss");
                     return;
                 }
-                stats->hp = 100;
+                stats->hp = 5000;
                 stats->hp_max = stats->hp;
                 stats->damage = bossBehaviorComp->rangedAttackDamage; // projectile phase is default
                 stats->maxSpeed = baseSpeed * 1.2f;
@@ -41,9 +41,8 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
 
         std::set<int> usedIndices;
-        /*int posIndex = SystemGetRandomPosition(positionsArr, usedIndices);
-        CE::Vector2D spawnPos = positionsArr[posIndex];*/
-        const CE::Vector2D spawnPos = {1000.f, 1000.f}; // fixed spawn for testing
+        int posIndex = SystemGetRandomPosition(positionsArr, usedIndices);
+        const CE::Vector2D spawnPos = positionsArr[posIndex];
         boss->setPosicion(spawnPos.x, spawnPos.y);
         boss->addComponente(std::make_shared<IBossBhvrMirage>());
         BSysAdjustBossStats(boss, BOSS_TYPE::MIRAGE);
@@ -63,8 +62,16 @@ namespace IVJ
 
         // Initialize damage timer for damage animation
         boss->damageTimer = std::make_shared<CE::ITimer>(30); // 30 frames of red flash on damage
-        // Set boss to ranged phase for testing
+
+        // Initialize HP text display
         auto behavior = boss->getComponente<IBossBhvrMirage>();
+        behavior->hpText = std::make_shared<Texto>(CE::GestorAssets::Get().getFont("NotJamSlab14"), "100%");
+        behavior->hpText->setTextCharacterSize(20);
+        behavior->hpText->setTextFillColor(sf::Color::White);
+        behavior->hpText->setPosicion(spawnPos.x, spawnPos.y - 50.f); // Position above boss
+        behavior->hpText->getStats()->hp = 1;
+
+        // Set boss to ranged phase for testing
         behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
         boss->setIsEntityFacingRight(true);
 
@@ -288,7 +295,7 @@ namespace IVJ
         {
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
-                boss->getStats()->maxSpeed = 140;
+                boss->getStats()->maxSpeed = 175;
                 return BSysMrgHandleSimpleAttackWindup(boss, player, distanceToPlayer);
             }
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
@@ -693,15 +700,17 @@ namespace IVJ
         bool shouldSwitch = false;
         std::string switchReason;
 
-        // Calculate which threshold the boss is currently at (rounded down to nearest interval)
-        int currentThreshold = static_cast<int>(hpPercentage / static_cast<float>(behavior->hpThresholdInterval)) * behavior->hpThresholdInterval;
+        // Calculate which threshold the boss has actually crossed (strict checking)
+        // Only trigger if HP is AT OR BELOW a threshold, not just rounded to it
+        int targetThreshold = (static_cast<int>(hpPercentage) / behavior->hpThresholdInterval) * behavior->hpThresholdInterval;
 
         // Check if we've crossed a new HP threshold (going downward)
-        if (currentThreshold < behavior->lastHpThresholdCrossed)
+        // Only switch if: 1) we're at/below a threshold AND 2) it's lower than the last one we crossed
+        if (targetThreshold < behavior->lastHpThresholdCrossed && hpPercentage <= static_cast<float>(targetThreshold))
         {
-            behavior->lastHpThresholdCrossed = currentThreshold;
+            behavior->lastHpThresholdCrossed = targetThreshold;
             shouldSwitch = true;
-            switchReason = "HP dropped to " + std::to_string(currentThreshold) + "%";
+            switchReason = "HP dropped to " + std::to_string(targetThreshold) + "%";
         }
 
         // Update attack mode timer
@@ -838,5 +847,37 @@ namespace IVJ
                 }
             }
         }
+    }
+
+    /*
+     * System to update boss HP text display
+     */
+    void BSysUpdateHPDisplay(std::shared_ptr<Entidad>& boss)
+    {
+        if (!boss->tieneComponente<IBossBhvrMirage>())
+            return;
+
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+        if (!behavior->hpText)
+            return;
+
+        const auto stats = boss->getStats();
+        float hpPercentage = (static_cast<float>(stats->hp) / static_cast<float>(stats->hp_max)) * 100.0f;
+
+        // Update text string with current HP percentage
+        std::string hpString = std::to_string(static_cast<int>(hpPercentage)) + "%";
+        behavior->hpText->setTextString(hpString);
+
+        // Update position to follow boss (above the boss sprite)
+        const auto& bossPos = boss->getTransformada()->posicion;
+        behavior->hpText->setPosicion(bossPos.x - 20.f, bossPos.y - 50.f); // Offset to center above boss
+
+        // Change color based on HP
+        if (hpPercentage > 66.0f)
+            behavior->hpText->setTextFillColor(sf::Color::Green);
+        else if (hpPercentage > 33.0f)
+            behavior->hpText->setTextFillColor(sf::Color::Yellow);
+        else
+            behavior->hpText->setTextFillColor(sf::Color::Red);
     }
 }

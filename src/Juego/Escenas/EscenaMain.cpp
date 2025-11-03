@@ -156,6 +156,8 @@ namespace IVJ
      */
     void EscenaMain::loadUIAssets()
     {
+        CE::GestorAssets::Get().agregarTextura("iconoGrande", ASSETS "/overlays/icon_lg.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{160, 150});
         CE::GestorAssets::Get().agregarTextura("crosshair", ASSETS "/sprites/items/assets UI/UI/Cursor_crosshair02.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{15, 17});
         CE::GestorAssets::Get().agregarTextura("heartSprite", ASSETS "/sprites/items/assets UI/UI/HUD_health01.png",
@@ -240,6 +242,7 @@ namespace IVJ
         boss = std::make_shared<Entidad>();
         MirageInit(boss, spawnPositions);
         objetos.agregarPool(boss);
+        objetos.agregarPool(boss->getComponente<IBossBhvrMirage>()->hpText);
 
         newInstance = false;
         gameState = true;
@@ -355,6 +358,7 @@ namespace IVJ
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
             BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);
             BSysUpdateTraps(bossTraps, boss, player, dt);
+            BSysUpdateHPDisplay(boss); // Update HP text display
         }
 
 
@@ -480,8 +484,6 @@ namespace IVJ
         {
             CE::Render::Get().AddToDraw(*obj);
         }
-
-
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 

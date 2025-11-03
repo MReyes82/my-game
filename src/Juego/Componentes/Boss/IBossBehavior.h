@@ -1,5 +1,6 @@
 #pragma once
 #include "Motor/Componentes/IComponentes.hpp"
+#include "Juego/objetos/Texto.hpp"
 
 namespace IVJ
 {
@@ -63,6 +64,9 @@ namespace IVJ
         int currentProjectilesInBurst;  // Current projectile in burst (0-4, for 5 projectiles)
         bool isShootingBurst;  // Is currently shooting a burst of projectiles
         bool isExecutingRangedAttack;  // Flag for FSM to trigger ranged attack animation
+
+        // HP display
+        std::shared_ptr<Texto> hpText;  // Text object to display HP percentage
 
     };
 }
