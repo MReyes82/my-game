@@ -156,6 +156,8 @@ namespace IVJ
      */
     void EscenaMain::loadUIAssets()
     {
+        CE::GestorAssets::Get().agregarTextura("iconoGrande", ASSETS "/overlays/icon_lg.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{160, 150});
         CE::GestorAssets::Get().agregarTextura("crosshair", ASSETS "/sprites/items/assets UI/UI/Cursor_crosshair02.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{15, 17});
         CE::GestorAssets::Get().agregarTextura("heartSprite", ASSETS "/sprites/items/assets UI/UI/HUD_health01.png",
@@ -176,8 +178,9 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
-        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirage(test).png",
-                                                      CE::Vector2D{0, 0}, CE::Vector2D{64.f, 64.f});
+        //
+        CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirageSprite.png",
+                                                      CE::Vector2D{0, 0}, CE::Vector2D{264.f, 192.f});
 
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
@@ -239,6 +242,7 @@ namespace IVJ
         boss = std::make_shared<Entidad>();
         MirageInit(boss, spawnPositions);
         objetos.agregarPool(boss);
+        objetos.agregarPool(boss->getComponente<IBossBhvrMirage>()->hpText);
 
         newInstance = false;
         gameState = true;
@@ -350,9 +354,11 @@ namespace IVJ
         // Update systems related to bosses (boss uses direct velocity control like enemies)
         if (boss->estaVivo())
         {
+            boss->inputFSM();
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
             BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);
             BSysUpdateTraps(bossTraps, boss, player, dt);
+            BSysUpdateHPDisplay(boss); // Update HP text display
         }
 
 
@@ -478,8 +484,6 @@ namespace IVJ
         {
             CE::Render::Get().AddToDraw(*obj);
         }
-
-
         // draw overlay at the end
         sceneOverlay->draw(CE::Render::Get());
 

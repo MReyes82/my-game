@@ -66,8 +66,6 @@ namespace IVJ
         setSceneTexts();
         addMenuOptPositions();
 
-        CE::GestorAssets::Get().agregarTextura("iconoGrande", ASSETS "/overlays/icon_lg.png",
-                                               CE::Vector2D{0, 0}, CE::Vector2D{160, 150});
         icon = std::make_shared<CE::ISprite>(CE::GestorAssets::Get().getTextura("iconoGrande"),160,150,0.75f);
         //icon->m_sprite.setPosition({70.f, 100.f});
 

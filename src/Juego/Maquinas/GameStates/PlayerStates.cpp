@@ -98,8 +98,6 @@ namespace IVJ
 
             time = max_time; // reset timer
             current_id++;
-
-            //flipSprite(obj);
         }
     }
 

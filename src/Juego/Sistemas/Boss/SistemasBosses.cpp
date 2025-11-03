@@ -2,6 +2,7 @@
 #include "../Sistemas.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include <random>
+#include "Juego/Maquinas/Boss/MirageStates.h"
 
 namespace IVJ
 {
@@ -20,7 +21,7 @@ namespace IVJ
                     CE::printDebug("[SISTEMAS BOSS] Error: boss behavior component not found for Mirage boss");
                     return;
                 }
-                stats->hp = 100;
+                stats->hp = 5000;
                 stats->hp_max = stats->hp;
                 stats->damage = bossBehaviorComp->rangedAttackDamage; // projectile phase is default
                 stats->maxSpeed = baseSpeed * 1.2f;
@@ -40,9 +41,8 @@ namespace IVJ
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
 
         std::set<int> usedIndices;
-        /*int posIndex = SystemGetRandomPosition(positionsArr, usedIndices);
-        CE::Vector2D spawnPos = positionsArr[posIndex];*/
-        const CE::Vector2D spawnPos = {1000.f, 1000.f}; // fixed spawn for testing
+        int posIndex = SystemGetRandomPosition(positionsArr, usedIndices);
+        const CE::Vector2D spawnPos = positionsArr[posIndex];
         boss->setPosicion(spawnPos.x, spawnPos.y);
         boss->addComponente(std::make_shared<IBossBhvrMirage>());
         BSysAdjustBossStats(boss, BOSS_TYPE::MIRAGE);
@@ -51,15 +51,29 @@ namespace IVJ
             64, 64, 1.f))
         .addComponente(std::make_shared<CE::IBoundingBox>(
             CE::Vector2D{64.f, 64.f}))
-        // this is just a patch so the boss is recognized as an enemy for collision systems, bullets systemsetc.
-        .addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY));
+        // this is just a patch so the boss is recognized as an enemy for collision systems, bullets systems etc.
+        .addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::ENEMY))
+        .addComponente(std::make_shared<IMaquinaEstado>()) // componentes needed for FSM, same as enemies
+        .addComponente(std::make_shared<CE::IControl>());
+
+        auto& fsm_init = boss->getComponente<IMaquinaEstado>()->fsm;
+        fsm_init = std::make_shared<MrgIdleState>(true);
+        fsm_init->onEntrar(*boss);
 
         // Initialize damage timer for damage animation
         boss->damageTimer = std::make_shared<CE::ITimer>(30); // 30 frames of red flash on damage
 
-        // Set boss to ranged phase for testing
+        // Initialize HP text display
         auto behavior = boss->getComponente<IBossBhvrMirage>();
+        behavior->hpText = std::make_shared<Texto>(CE::GestorAssets::Get().getFont("NotJamSlab14"), "100%");
+        behavior->hpText->setTextCharacterSize(20);
+        behavior->hpText->setTextFillColor(sf::Color::White);
+        behavior->hpText->setPosicion(spawnPos.x, spawnPos.y - 50.f); // Position above boss
+        behavior->hpText->getStats()->hp = 1;
+
+        // Set boss to ranged phase for testing
         behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
+        boss->setIsEntityFacingRight(true);
 
         CE::printDebug("[BOSS INIT] Mirage boss initialized at position (" +
                       std::to_string(spawnPos.x) + ", " + std::to_string(spawnPos.y) + ") in RANGED phase");
@@ -76,7 +90,7 @@ namespace IVJ
     }
     /*
      * Helper function to move boss towards player
-     * Directly sets velocity like enemy movement (no IControl)
+     * Directly sets velocity like enemy movement
      */
     void BSysMoveTowardsPlayer(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player)
     {
@@ -109,7 +123,6 @@ namespace IVJ
     bool BSysMrgHandleSimpleAttackWindup(std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float distanceToPlayer)
     {
         auto behavior = boss->getComponente<IBossBhvrMirage>();
-        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Yellow);
 
         // Only progress windup timer and stop movement if boss is close enough to the player
         if (distanceToPlayer <= behavior->meleeAttackRange)
@@ -125,18 +138,27 @@ namespace IVJ
                 player->checkAndApplyDamage(behavior->meleeAttackDamage);
                 CE::printDebug("[BOSS] Simple melee attack landed! Dealt " +
                              std::to_string(behavior->meleeAttackDamage) + " damage.");
-                boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
 
                 behavior->hasLandedAttack = true;
                 behavior->isWindingUp = false;
                 behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+                behavior->isExecutingMeleeAttack = false;
                 boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
             }
 
             return true; // Attack is actively winding up and boss is in range
         }
 
-        return false; // Let movement system handle positioning
+        // Player moved out of range - cancel the attack
+        CE::printDebug("[BOSS] Simple melee attack cancelled - player out of range");
+        behavior->isWindingUp = false;
+        behavior->hasLandedAttack = false;
+        behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+        behavior->isExecutingMeleeAttack = false;
+        boss->resetTimer(behavior->simpleMeleeWindupTimer.get());
+        boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
+
+        return false; // Attack cancelled, let movement system handle positioning
     }
 
     /*
@@ -149,14 +171,11 @@ namespace IVJ
 
         // Quick attack always stops movement and progresses timer during windup
         BSysStopMovement(boss);
-        boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::Green);
         behavior->quickMeleeWindupTimer->frame_actual++;
 
         // Attack lands
         if (boss->hasTimerReachedMax(behavior->quickMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
         {
-            boss->getComponente<CE::ISprite>()->m_sprite.setColor(sf::Color::White);
-
             // Check if player is still in range
             if (distanceToPlayer <= behavior->meleeAttackRange)
             {
@@ -173,8 +192,10 @@ namespace IVJ
             }
 
             behavior->hasLandedAttack = true;
+            boss->finishedAttackAnimation = true;
             behavior->isWindingUp = false;
             behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+            behavior->isExecutingMeleeAttack = false;
             boss->resetTimer(behavior->meleeAttackCooldownTimer.get());
         }
 
@@ -196,6 +217,7 @@ namespace IVJ
 
         behavior->isWindingUp = true;
         behavior->hasLandedAttack = false;
+        behavior->isExecutingMeleeAttack = true;
         return true;
     }
 
@@ -231,6 +253,7 @@ namespace IVJ
             behavior->isWindingUp = true;
             behavior->hasLandedAttack = false;
             behavior->didTeleport = true;
+            behavior->isExecutingMeleeAttack = true;
             return true;
         }
 
@@ -245,6 +268,7 @@ namespace IVJ
             behavior->isWindingUp = true;
             behavior->hasLandedAttack = false;
             behavior->didTeleport = false;
+            behavior->isExecutingMeleeAttack = true;
             return true;
         }
 
@@ -271,7 +295,7 @@ namespace IVJ
         {
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
-                boss->getStats()->maxSpeed = 140;
+                boss->getStats()->maxSpeed = 175;
                 return BSysMrgHandleSimpleAttackWindup(boss, player, distanceToPlayer);
             }
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
@@ -415,7 +439,7 @@ namespace IVJ
         }
 
         // Create trap entity at specified position
-        auto trap = std::make_shared<Entidad>();
+        auto trap = std::make_shared<IVJ::Entidad>();
         trap->setPosicion(trapPos.x, trapPos.y);
 
         // Add sprite component using the trap texture
@@ -463,6 +487,8 @@ namespace IVJ
         // If we're currently shooting a burst
         if (behavior->isShootingBurst)
         {
+            behavior->isExecutingRangedAttack = true;
+
             // Update burst cadence timer
             behavior->projectileBurstTimer->frame_actual++;
 
@@ -511,6 +537,7 @@ namespace IVJ
                     if (behavior->currentBurstCount >= 3)
                     {
                         behavior->isShootingBurst = false;
+                        behavior->isExecutingRangedAttack = false;
                         behavior->currentBurstCount = 0;
                         boss->resetTimer(behavior->rangedAttackTimer.get());
                         CE::printDebug("[BOSS] Completed all 3 bursts. Resetting ranged attack timer.");
@@ -673,15 +700,17 @@ namespace IVJ
         bool shouldSwitch = false;
         std::string switchReason;
 
-        // Calculate which threshold the boss is currently at (rounded down to nearest interval)
-        int currentThreshold = static_cast<int>(hpPercentage / static_cast<float>(behavior->hpThresholdInterval)) * behavior->hpThresholdInterval;
+        // Calculate which threshold the boss has actually crossed (strict checking)
+        // Only trigger if HP is AT OR BELOW a threshold, not just rounded to it
+        int targetThreshold = (static_cast<int>(hpPercentage) / behavior->hpThresholdInterval) * behavior->hpThresholdInterval;
 
         // Check if we've crossed a new HP threshold (going downward)
-        if (currentThreshold < behavior->lastHpThresholdCrossed)
+        // Only switch if: 1) we're at/below a threshold AND 2) it's lower than the last one we crossed
+        if (targetThreshold < behavior->lastHpThresholdCrossed && hpPercentage <= static_cast<float>(targetThreshold))
         {
-            behavior->lastHpThresholdCrossed = currentThreshold;
+            behavior->lastHpThresholdCrossed = targetThreshold;
             shouldSwitch = true;
-            switchReason = "HP dropped to " + std::to_string(currentThreshold) + "%";
+            switchReason = "HP dropped to " + std::to_string(targetThreshold) + "%";
         }
 
         // Update attack mode timer
@@ -720,7 +749,9 @@ namespace IVJ
             behavior->isWindingUp = false;
             behavior->hasLandedAttack = false;
             behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::NONE;
+            behavior->isExecutingMeleeAttack = false;
             behavior->isShootingBurst = false;
+            behavior->isExecutingRangedAttack = false;
             behavior->currentBurstCount = 0;
             behavior->currentProjectilesInBurst = 0;
 
@@ -816,5 +847,37 @@ namespace IVJ
                 }
             }
         }
+    }
+
+    /*
+     * System to update boss HP text display
+     */
+    void BSysUpdateHPDisplay(std::shared_ptr<Entidad>& boss)
+    {
+        if (!boss->tieneComponente<IBossBhvrMirage>())
+            return;
+
+        auto behavior = boss->getComponente<IBossBhvrMirage>();
+        if (!behavior->hpText)
+            return;
+
+        const auto stats = boss->getStats();
+        float hpPercentage = (static_cast<float>(stats->hp) / static_cast<float>(stats->hp_max)) * 100.0f;
+
+        // Update text string with current HP percentage
+        std::string hpString = std::to_string(static_cast<int>(hpPercentage)) + "%";
+        behavior->hpText->setTextString(hpString);
+
+        // Update position to follow boss (above the boss sprite)
+        const auto& bossPos = boss->getTransformada()->posicion;
+        behavior->hpText->setPosicion(bossPos.x - 20.f, bossPos.y - 50.f); // Offset to center above boss
+
+        // Change color based on HP
+        if (hpPercentage > 66.0f)
+            behavior->hpText->setTextFillColor(sf::Color::Green);
+        else if (hpPercentage > 33.0f)
+            behavior->hpText->setTextFillColor(sf::Color::Yellow);
+        else
+            behavior->hpText->setTextFillColor(sf::Color::Red);
     }
 }

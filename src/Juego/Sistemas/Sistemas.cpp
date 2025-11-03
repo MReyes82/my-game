@@ -247,35 +247,28 @@ namespace IVJ
     // system for enemies to follow the player
     void SystemFollowPlayer(std::vector<std::shared_ptr<Entidad>>& chasers, std::shared_ptr<Entidad>&target, float dt)
     {
-        // TODO: improve the following logic, currently using old version
-        // TODO: implement a following logic where it calculates how much it has to move based on the distance to the player
-        // (calculating the vector2D)
-        // only changing the velocidad->x and y.
-        constexpr float followDistance = 12.f;
+        constexpr float followDistance = 25.f;
         constexpr float separationDistance = 50.f;
-        const float separationStrength = 1.5f;
-        const float seekWeight = 1.0f;
-        const float separationWeight = 1.5f;
-        const float cohesionWeight = 0.0f;
+        constexpr float separationStrength = 1.5f;
+        const auto& playerPos = target->getTransformada()->posicion;
 
         for (auto& chaser : chasers)
         {
             auto& chaserTransform = *chaser->getTransformada();
-            auto& targetTransform = *target->getTransformada();
-            CE::Vector2D directionToTarget = targetTransform.posicion - chaserTransform.posicion;
-            float distanceToTarget = directionToTarget.magnitud();
-            const float speed = chaser->getStats()->maxSpeed;
 
-            CE::Vector2D seekVelocity{0.f, 0.f};
-            if (distanceToTarget > followDistance)
+            CE::Vector2D directionToPlayer = playerPos - chaserTransform.posicion;
+            float distanceToPlayer = directionToPlayer.magnitud();
+
+            // Stop moving if within follow distance
+            if (distanceToPlayer <= followDistance)
             {
-                seekVelocity = directionToTarget.normalizacion().escala(speed);
-            }
-            else
-            {
-                seekVelocity = CE::Vector2D{0.f, 0.f}; // stop moving within follow distance
+                chaserTransform.velocidad = CE::Vector2D{0.f, 0.f};
+                continue;
             }
 
+            directionToPlayer = directionToPlayer.normalizacion();
+
+            // Calculate separation force from other enemies
             CE::Vector2D separationForce{0.f, 0.f};
             for (const auto& otherChaser : chasers)
             {
@@ -284,24 +277,30 @@ namespace IVJ
                     auto& otherTransform = *otherChaser->getTransformada();
                     CE::Vector2D diff = chaserTransform.posicion - otherTransform.posicion;
                     float distance = diff.magnitud();
-                    if (distance < separationDistance && distance > 0) // avoid division by zero
+                    if (distance < separationDistance && distance > 0)
+                    {
+                        // Push away from nearby enemies
                         separationForce += diff.normalizacion().escala((separationDistance - distance) / separationDistance);
+                    }
                 }
             }
-
             separationForce = separationForce.escala(separationStrength);
-            CE::Vector2D cohesionForce{0.f, 0.f}; // not implemented yet
-            CE::Vector2D combinedForce = {seekVelocity.escala(seekWeight) + separationForce.escala(separationWeight) + cohesionForce.escala(cohesionWeight)};
-            CE::Vector2D finalVelocity = combinedForce.normalizacion().escala(speed);
-            chaserTransform.velocidad = lerp(chaserTransform.velocidad, finalVelocity, 0.5f * dt);
-            // check if the enemy arrived to the player
-            if (chaser->getCollidedWithAnotherEntity())
+
+            // Get enemy speed and combine seek direction with separation
+            const float speed = chaser->getStats()->maxSpeed;
+            CE::Vector2D seekVelocity = directionToPlayer.escala(speed);
+            CE::Vector2D combinedVelocity = seekVelocity + separationForce;
+
+            // Normalize and scale to maintain speed
+            if (combinedVelocity.magnitud() > 0)
             {
-                chaserTransform.velocidad = {0.f, 0.f};
+                chaserTransform.velocidad = combinedVelocity.normalizacion().escala(speed);
             }
-            // Set the facing direction based on velocity
-            const bool facingRight = chaserTransform.velocidad.x > 0;
-            chaser->setIsEntityFacingRight(facingRight);
+            else
+            {
+                chaserTransform.velocidad = seekVelocity;
+            }
+            chaser->setIsEntityFacingRight(directionToPlayer.x > 0);
         }
     }
 
@@ -870,19 +869,9 @@ namespace IVJ
 
             // 2. Check collision against each enemy
             for (auto& enemy : enemies)
-            {
-                /*// Skip if enemy doesn't have entity type component
-                if (!enemy->tieneComponente<CE::IEntityType>())
-                    continue;
-
-                // Skip non-enemy entities
-                if (enemy->getComponente<CE::IEntityType>()->type != CE::ENTITY_TYPE::ENEMY)
-                    continue;*/
-
-                // Skip enemies with no HP left
+            {// Skip enemies with no HP left
                 if (enemy->getStats()->hp <= 0)
                     continue;
-
                 // If bullet overlaps an enemy's bounding box
                 if (SistemaColAABBMid(*bullet, *enemy, true))
                 {
@@ -1043,7 +1032,7 @@ namespace IVJ
     {
         for (auto& e : enemies)
         {
-            //e->inputFSM(); TODO: find why it SIGSEGV's when checking entity transform on the FSM scope
+            e->inputFSM(); //TODO: find why it SIGSEGV's when checking entity transform on the FSM scope
             if (SistemaColAABBMid(*player, *e, true))
             {
                 // set flag to true to update the state machine

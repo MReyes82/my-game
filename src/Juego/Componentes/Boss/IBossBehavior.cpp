@@ -18,10 +18,12 @@ namespace IVJ
         isWindingUp{false},
         hasLandedAttack{false},
         didTeleport{false},
+        isExecutingMeleeAttack{false},
         rangedKeepDistanceRange{250.0f},
         currentBurstCount{0},
         currentProjectilesInBurst{0},
-        isShootingBurst{false}
+        isShootingBurst{false},
+        isExecutingRangedAttack{false}
     {
         // Initialize timer components (assuming 60 FPS)
         meleeAttackCooldownTimer = std::make_shared<CE::ITimer>(120);  // 2 seconds at 60 FPS

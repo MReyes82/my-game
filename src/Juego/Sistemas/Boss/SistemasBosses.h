@@ -32,4 +32,7 @@ namespace IVJ
                                CE::Pool& pool, float dt);
     [[maybe_unused]] void BSysUpdateTraps(std::vector<std::shared_ptr<Entidad>>& bossTraps,
                                           std::shared_ptr<Entidad>& boss, std::shared_ptr<Entidad>& player, float dt);
+
+    // HP Display system
+    [[maybe_unused]] void BSysUpdateHPDisplay(std::shared_ptr<Entidad>& boss);
 }

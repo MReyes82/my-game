@@ -48,8 +48,6 @@ namespace IVJ
     }
     void Entidad::inputFSM()
     {
-        // maybe will need to remove the control component check
-        // since the enemy should not have this component, but since it's an OR
         if(!getComponente<IMaquinaEstado>() || !getComponente<CE::IControl>() ||
            !getComponente<IMaquinaEstado>()->fsm)
             return;
