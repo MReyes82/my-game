@@ -1,4 +1,4 @@
-#include "IBossBehavior.h"
+#include "IBossBehavior.hpp"
 
 namespace IVJ
 {
@@ -11,8 +11,8 @@ namespace IVJ
         hpThresholdInterval{10},
         currentTrapsDeployed{0},
         maxTrapsAllowed{10},
-        meleeAttackDamage{1},
-        quickMeleeAttackDamage{2},
+        meleeAttackDamage{2},
+        quickMeleeAttackDamage{3},
         rangedAttackDamage{2},
         meleeAttackRange{80.0f},
         isWindingUp{false},

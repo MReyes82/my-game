@@ -1,5 +1,5 @@
-#include "MirageStates.h"
-#include "Juego/Componentes/Boss/IBossBehavior.h"
+#include "MirageStates.hpp"
+#include "Juego/Componentes/Boss/IBossBehavior.hpp"
 
 // constant declared here because I'm too lazy to modify the logic of the FSM base class
 #define FRAME_OFFSET 32.f

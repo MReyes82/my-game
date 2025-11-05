@@ -6,7 +6,7 @@
 
 #include "Juego/Figuras/Figuras.hpp"
 #include "Juego/objetos/Entidad.hpp"
-#include "Juego/Componentes/Boss/IBossBehavior.h"
+#include "Juego/Componentes/Boss/IBossBehavior.hpp"
 #include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Utils/Lerp.hpp"
@@ -493,7 +493,7 @@ namespace IVJ
             break;
 
         case CE::WEAPON_TYPE::KNIFE:
-            stats->damage = 5;
+            stats->damage = 3;
             // -1 value for any of the ammo values since it does not have
             weapon->currentMagBullets = -1;
             weapon->magSize = -1;
@@ -517,7 +517,7 @@ namespace IVJ
             weapon->magSize = 5;
             weapon->maxWeaponBullets = 25; // 5 mags
             weapon->reloadTime = 5.0f;
-            weapon->fireRate = 1.2f; // 1.2 seconds between
+            weapon->fireRate = 1.f; // 1 seconds between
             break;
 
         case CE::WEAPON_TYPE::SMG:
@@ -1032,6 +1032,8 @@ namespace IVJ
     {
         for (auto& e : enemies)
         {
+            if (e->tieneComponente<IBossBhvrMirage>())
+                continue;
             e->inputFSM(); //TODO: find why it SIGSEGV's when checking entity transform on the FSM scope
             if (SistemaColAABBMid(*player, *e, true))
             {

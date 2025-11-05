@@ -1,8 +1,8 @@
-#include "SistemasBosses.h"
+#include "SistemasBosses.hpp"
 #include "../Sistemas.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include <random>
-#include "Juego/Maquinas/Boss/MirageStates.h"
+#include "Juego/Maquinas/Boss/MirageStates.hpp"
 
 namespace IVJ
 {
@@ -136,6 +136,10 @@ namespace IVJ
                 // Deal damage to player
                 player->hasBeenHit = true;
                 player->checkAndApplyDamage(behavior->meleeAttackDamage);
+                CE::Vector2D knockbackDir = player->getTransformada()->posicion;
+                knockbackDir.resta(boss->getTransformada()->posicion);
+                knockbackDir.normalizacion();
+                player->applyKnockback(knockbackDir, 200.f);
                 CE::printDebug("[BOSS] Simple melee attack landed! Dealt " +
                              std::to_string(behavior->meleeAttackDamage) + " damage.");
 
@@ -182,6 +186,10 @@ namespace IVJ
                 // Deal damage to player
                 player->hasBeenHit = true;
                 player->checkAndApplyDamage(behavior->quickMeleeAttackDamage);
+                CE::Vector2D knockbackDir = player->getTransformada()->posicion;
+                knockbackDir.resta(boss->getTransformada()->posicion);
+                knockbackDir.normalizacion();
+                player->applyKnockback(knockbackDir, 200.f);
                 CE::printDebug("[BOSS] Quick melee attack landed! Dealt " +
                              std::to_string(behavior->quickMeleeAttackDamage) + " damage.");
             }
@@ -295,7 +303,7 @@ namespace IVJ
         {
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
-                boss->getStats()->maxSpeed = 175;
+                boss->getStats()->maxSpeed = 165;
                 return BSysMrgHandleSimpleAttackWindup(boss, player, distanceToPlayer);
             }
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
@@ -513,7 +521,7 @@ namespace IVJ
                                  16, 16, 1.f))
                           .addComponente(std::make_shared<CE::IBoundingBox>(
                                  CE::Vector2D{16.f, 16.f}))
-                          .addComponente(std::make_shared<CE::ITimer>(180)); // 3 seconds lifetime
+                          .addComponente(std::make_shared<CE::ITimer>(240)); // 3 seconds lifetime
                 projectile->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PROJECTILE));
 
                 projectile->getStats()->hp = 1;
@@ -781,7 +789,7 @@ namespace IVJ
         auto behavior = boss->getComponente<IBossBhvrMirage>();
         auto currentAttackPhase = behavior->currentAttackPhase;
 
-        // Debug: Log once every 60 frames (~1 second)
+        // Debug: Log once every 60 frames
         static int debugFrameCounter = 0;
         if (debugFrameCounter++ % 60 == 0)
         {

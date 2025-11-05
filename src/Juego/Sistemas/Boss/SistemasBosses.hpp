@@ -1,6 +1,6 @@
 #pragma once
 #include "Juego/objetos/Entidad.hpp"
-#include "Juego/Componentes/Boss/IBossBehavior.h"
+#include "Juego/Componentes/Boss/IBossBehavior.hpp"
 #include "Motor/Primitivos/CEPool.hpp"
 #include <vector>
 

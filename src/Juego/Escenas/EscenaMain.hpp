@@ -40,6 +40,7 @@ namespace IVJ
         bool newInstance {true}; // flag to initialize only once
         bool gameState {false}; // false = playing, true = paused
         std::shared_ptr<Entidad> player; // player entity
+        bool isBossPaused = false;
         //std::vector<std::shared_ptr<Entidad>> enemies; // vector of enemy entities
 
         // weapon an utilities functions

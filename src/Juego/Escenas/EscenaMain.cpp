@@ -10,7 +10,7 @@
 #include "Motor/Primitivos/GestorEscenas.hpp"
 #include "Motor/Render/Render.hpp"
 #include "Overlay/Overlay.hpp"
-#include "Juego/Sistemas/Boss/SistemasBosses.h"
+#include "Juego/Sistemas/Boss/SistemasBosses.hpp"
 
 #define SECONDS_ 60
 #define MINUTES_ 3600
@@ -73,6 +73,7 @@ namespace IVJ
         registrarBotonesMouse(sf::Mouse::Button::Left, "atacar");
         registrarBotonesMouse(sf::Mouse::Button::Right, "interactuar");
         registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
+        registrarBotones(sf::Keyboard::Scancode::P, "pauseboss");
     }
 
     void EscenaMain::summonEnemies(const int maxEnemies)
@@ -352,7 +353,7 @@ namespace IVJ
         SystemHandleEnemyAttacks(player, enemies);
 
         // Update systems related to bosses (boss uses direct velocity control like enemies)
-        if (boss->estaVivo())
+        if (boss->estaVivo() && !isBossPaused)
         {
             boss->inputFSM();
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
@@ -377,7 +378,7 @@ namespace IVJ
                 playerControl->run = true;
             }
 
-            if (accion.getNombre() == "arriba")
+            else if (accion.getNombre() == "arriba")
             {
                 playerControl->arr = true;
             }
@@ -405,6 +406,10 @@ namespace IVJ
                 {
                     CE::printDebug("Game paused");
                 }
+            }
+            else if (accion.getNombre() == "pauseboss")
+            {
+                isBossPaused = !isBossPaused;
             }
         }
 
