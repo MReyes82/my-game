@@ -21,7 +21,7 @@ namespace IVJ
                     CE::printDebug("[SISTEMAS BOSS] Error: boss behavior component not found for Mirage boss");
                     return;
                 }
-                stats->hp = 5000;
+                stats->hp = 100;
                 stats->hp_max = stats->hp;
                 stats->damage = bossBehaviorComp->rangedAttackDamage; // projectile phase is default
                 stats->maxSpeed = baseSpeed * 1.2f;
@@ -72,7 +72,7 @@ namespace IVJ
         behavior->hpText->getStats()->hp = 1;
 
         // Set boss to ranged phase for testing
-        behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
+        behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::MELEE;
         boss->setIsEntityFacingRight(true);
 
         CE::printDebug("[BOSS INIT] Mirage boss initialized at position (" +
@@ -125,7 +125,7 @@ namespace IVJ
         auto behavior = boss->getComponente<IBossBhvrMirage>();
 
         // Only progress windup timer and stop movement if boss is close enough to the player
-        if (distanceToPlayer <= behavior->meleeAttackRange)
+        if (distanceToPlayer <= behavior->simpleMeleeAttackRange)
         {
             BSysStopMovement(boss);
             behavior->simpleMeleeWindupTimer->frame_actual++;
@@ -181,7 +181,7 @@ namespace IVJ
         if (boss->hasTimerReachedMax(behavior->quickMeleeWindupTimer.get()) && !behavior->hasLandedAttack)
         {
             // Check if player is still in range
-            if (distanceToPlayer <= behavior->meleeAttackRange)
+            if (distanceToPlayer <= behavior->quickMeleeAttackRange)
             {
                 // Deal damage to player
                 player->hasBeenHit = true;
@@ -244,18 +244,49 @@ namespace IVJ
         // Teleport attack if in medium range
         if (distanceToPlayer >= minTeleportDistance && distanceToPlayer <= maxTeleportDistance)
         {
-            // Teleport to player position (with slight offset to be in attack range)
             const auto& playerPos = player->getTransformada()->posicion;
-            CE::Vector2D directionToPlayer = playerPos - boss->getTransformada()->posicion;
-            directionToPlayer = directionToPlayer.normalizacion();
+            const auto& playerVelocity = player->getTransformada()->velocidad;
 
-            // Position boss slightly away from player (at 70% of attack range)
-            CE::Vector2D teleportOffset = directionToPlayer.escala(-behavior->meleeAttackRange * 0.7f);
-            boss->getTransformada()->posicion = playerPos + teleportOffset;
+            // Calculate player's movement direction
+            CE::Vector2D playerDirection = playerVelocity;
+            float playerSpeed = playerDirection.magnitud();
+
+            // If player is moving, predict their position and teleport in front of them
+            CE::Vector2D teleportPosition;
+            if (playerSpeed > 1.0f)  // Player is moving (threshold to ignore small movements)
+            {
+                playerDirection = playerDirection.normalizacion();
+
+                // Predict where player will be (use 30% of windup time for closer prediction)
+                // Velocity is already per-frame, so multiply by number of frames
+                auto framesAhead = static_cast<float>(behavior->quickMeleeWindupTimer->max_frame) * 0.25f;
+                CE::Vector2D velocityOffset = playerVelocity;  // Create a copy
+                velocityOffset.escala(framesAhead);  // Scale it
+                CE::Vector2D predictedPlayerPos = playerPos + velocityOffset;
+
+                // Position boss in front of predicted position (at 70% of attack range)
+                CE::Vector2D teleportOffset = playerDirection.escala(behavior->quickMeleeAttackRange * 0.7f);
+                teleportPosition = predictedPlayerPos + teleportOffset;
+
+                CE::printDebug("[BOSS] TELEPORTING IN FRONT of moving player (velocity mag: " +
+                             std::to_string(playerSpeed) + ", predicted " + std::to_string(framesAhead) + " frames ahead)");
+            }
+            else
+            {
+                // Player is stationary or barely moving - teleport near them
+                CE::Vector2D directionToPlayer = playerPos - boss->getTransformada()->posicion;
+                directionToPlayer = directionToPlayer.normalizacion();
+                CE::Vector2D teleportOffset = directionToPlayer.escala(-behavior->quickMeleeAttackRange * 0.7f);
+                teleportPosition = playerPos + teleportOffset;
+
+                CE::printDebug("[BOSS] TELEPORTING near stationary player");
+            }
+
+            boss->getTransformada()->posicion = teleportPosition;
 
             behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
             boss->resetTimer(behavior->quickMeleeWindupTimer.get());
-            CE::printDebug("[BOSS] TELEPORTED to player and starting QUICK melee attack (windup: " +
+            CE::printDebug("[BOSS] Starting QUICK melee attack after teleport (windup: " +
                          std::to_string(behavior->quickMeleeWindupTimer->max_frame) + " frames)");
 
             behavior->isWindingUp = true;
@@ -266,7 +297,7 @@ namespace IVJ
         }
 
         // Quick attack without teleport if in close range
-        if (distanceToPlayer <= behavior->meleeAttackRange)
+        if (distanceToPlayer <= behavior->quickMeleeAttackRange)
         {
             behavior->currentMeleeAttack = IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK;
             boss->resetTimer(behavior->quickMeleeWindupTimer.get());
@@ -303,7 +334,7 @@ namespace IVJ
         {
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::SIMPLE)
             {
-                boss->getStats()->maxSpeed = 165;
+                boss->getStats()->maxSpeed = 175;
                 return BSysMrgHandleSimpleAttackWindup(boss, player, distanceToPlayer);
             }
             if (behavior->currentMeleeAttack == IBossBhvrMirage::MELEE_ATTACK_TYPE::QUICK)
@@ -811,8 +842,8 @@ namespace IVJ
             {
                 float distanceToPlayer = BSysGetDistanceToPlayer(boss, player);
 
-                // If outside attack range, move towards player
-                if (distanceToPlayer > behavior->meleeAttackRange * 0.8f) // Start approaching at 80% of attack range
+                // If outside attack range, move towards player (use simple attack range as it's longer)
+                if (distanceToPlayer > behavior->simpleMeleeAttackRange * 0.8f) // Start approaching at 80% of attack range
                 {
                     BSysMoveTowardsPlayer(boss, player);
                 }
@@ -868,6 +899,12 @@ namespace IVJ
         auto behavior = boss->getComponente<IBossBhvrMirage>();
         if (!behavior->hpText)
             return;
+        if (!boss->estaVivo())
+        {
+            //behavior->hpText->getStats()->hp = 0;
+            behavior->hpText->setTextString("");
+            return;
+        }
 
         const auto stats = boss->getStats();
         float hpPercentage = (static_cast<float>(stats->hp) / static_cast<float>(stats->hp_max)) * 100.0f;

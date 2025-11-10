@@ -49,8 +49,9 @@ namespace IVJ
         std::shared_ptr<CE::ITimer> simpleMeleeWindupTimer;      // Windup time for simple attack
         std::shared_ptr<CE::ITimer> quickMeleeWindupTimer;       // Windup time for quick attack
 
-        // Attack range
-        float meleeAttackRange;
+        // Attack ranges
+        float simpleMeleeAttackRange;  // Range for simple melee attacks
+        float quickMeleeAttackRange;   // Range for quick melee attacks
         bool isWindingUp;  // Is the boss currently winding up an attack?
         bool hasLandedAttack; // Has the current attack landed?
         bool didTeleport; // Did the boss teleport for the current attack?

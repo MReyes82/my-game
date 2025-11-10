@@ -14,7 +14,8 @@ namespace IVJ
         meleeAttackDamage{2},
         quickMeleeAttackDamage{3},
         rangedAttackDamage{2},
-        meleeAttackRange{80.0f},
+        simpleMeleeAttackRange{120.0f},
+        quickMeleeAttackRange{80.0f},
         isWindingUp{false},
         hasLandedAttack{false},
         didTeleport{false},
@@ -26,9 +27,9 @@ namespace IVJ
         isExecutingRangedAttack{false}
     {
         // Initialize timer components (assuming 60 FPS)
-        meleeAttackCooldownTimer = std::make_shared<CE::ITimer>(120);  // 2 seconds at 60 FPS
-        simpleMeleeWindupTimer = std::make_shared<CE::ITimer>(72);     // 1.2 seconds at 60 FPS
-        quickMeleeWindupTimer = std::make_shared<CE::ITimer>(60);      // 1.0 second at 60 FPS
+        meleeAttackCooldownTimer = std::make_shared<CE::ITimer>(90);
+        simpleMeleeWindupTimer = std::make_shared<CE::ITimer>(60);
+        quickMeleeWindupTimer = std::make_shared<CE::ITimer>(66);
 
         // Ranged attack timers
         rangedAttackTimer = std::make_shared<CE::ITimer>(180);  // 3 seconds at 60 FPS
