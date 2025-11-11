@@ -359,9 +359,9 @@ namespace IVJ
             BSysMrgMovement(boss, player, bossProjectiles, bossTraps, objetos, 3840.f, 3840.f, dt);
             BSysUpdateProjectiles(bossProjectiles, boss, bossTraps, player, objetos, dt);
             BSysUpdateTraps(bossTraps, boss, player, dt);
-            BSysUpdateHPDisplay(boss); // Update HP text display
         }
-
+        // Update HP text display (handles both alive and dead states)
+        BSysUpdateHPDisplay(boss);
 
         // Clean up dead objects from pool
         objetos.borrarPool();

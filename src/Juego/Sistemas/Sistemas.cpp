@@ -1034,7 +1034,7 @@ namespace IVJ
         {
             if (e->tieneComponente<IBossBhvrMirage>())
                 continue;
-            e->inputFSM(); //TODO: find why it SIGSEGV's when checking entity transform on the FSM scope
+            e->inputFSM();
             if (SistemaColAABBMid(*player, *e, true))
             {
                 // set flag to true to update the state machine

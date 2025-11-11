@@ -16,12 +16,7 @@ namespace IVJ
         {
             case BOSS_TYPE::MIRAGE:
                 const auto bossBehaviorComp = boss->getComponente<IBossBhvrMirage>();
-                if (!bossBehaviorComp)
-                {
-                    CE::printDebug("[SISTEMAS BOSS] Error: boss behavior component not found for Mirage boss");
-                    return;
-                }
-                stats->hp = 100;
+                stats->hp = 1500;
                 stats->hp_max = stats->hp;
                 stats->damage = bossBehaviorComp->rangedAttackDamage; // projectile phase is default
                 stats->maxSpeed = baseSpeed * 1.2f;
@@ -901,7 +896,7 @@ namespace IVJ
             return;
         if (!boss->estaVivo())
         {
-            //behavior->hpText->getStats()->hp = 0;
+            behavior->hpText->getStats()->hp = 0;
             behavior->hpText->setTextString("");
             return;
         }
