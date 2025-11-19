@@ -16,7 +16,7 @@ namespace IVJ
         {
             case BOSS_TYPE::MIRAGE:
                 const auto bossBehaviorComp = boss->getComponente<IBossBhvrMirage>();
-                stats->hp = 1500;
+                stats->hp = 1200;
                 stats->hp_max = stats->hp;
                 stats->damage = bossBehaviorComp->rangedAttackDamage; // projectile phase is default
                 stats->maxSpeed = baseSpeed * 1.2f;
@@ -67,7 +67,7 @@ namespace IVJ
         behavior->hpText->getStats()->hp = 1;
 
         // Set boss to ranged phase for testing
-        behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::MELEE;
+        behavior->currentAttackPhase = IBossBhvrMirage::ATTACK_PHASE::RANGED;
         boss->setIsEntityFacingRight(true);
 
         CE::printDebug("[BOSS INIT] Mirage boss initialized at position (" +

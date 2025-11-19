@@ -171,6 +171,7 @@ namespace CE
             bool jmp;
             bool atacar;
             bool interactuar;
+            bool NPCinteract;
             bool swapWeapon; // swap between melee and any other weapon
     };
 

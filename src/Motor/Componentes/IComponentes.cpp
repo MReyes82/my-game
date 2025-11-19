@@ -116,6 +116,7 @@ namespace CE
         jmp = false;
         atacar = false;
         interactuar = false;
+        NPCinteract = false;
         swapWeapon = false;
     }
 
