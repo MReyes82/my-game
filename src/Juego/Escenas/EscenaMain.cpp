@@ -186,6 +186,9 @@ namespace IVJ
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
         CE::GestorAssets::Get().agregarFont("NotJamSlab14",ASSETS "/fonts/NotJamSlab14.ttf");
+
+        // Load quest dialogues
+        CE::GestorAssets::Get().cargarDialogues(ASSETS "/dialogues/quest_dialogues.csv");
     }
 
     // update the InfoUI object attributes based on current game state

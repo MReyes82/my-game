@@ -173,6 +173,12 @@ namespace CE
             bool interactuar;
             bool NPCinteract;
             bool swapWeapon; // swap between melee and any other weapon
+
+            void setActivo(bool a) { active = a; }
+            bool isActivo() const { return active; }
+
+        private:
+            bool active {true};
     };
 
     class IBoundingBox: public IComponentes

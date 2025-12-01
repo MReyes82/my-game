@@ -22,6 +22,7 @@ namespace IVJ
             //std::vector<std::shared_ptr<CE::Objeto>> objetos;
             //CE::Pool pool{1000};
             CE::Escena* escena_actual;
+            std::shared_ptr<Entidad> jugador_ref;
     };
 
 }
