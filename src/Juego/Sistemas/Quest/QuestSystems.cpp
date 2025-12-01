@@ -2,9 +2,30 @@
 
 #include "Motor/Render/Render.hpp"
 #include "Motor/Utils/Lerp.hpp"
+#include "Motor/Primitivos/GestorAssets.hpp"
 
 namespace IVJ
 {
+    // Helper function for adding line breaks
+    static std::wstring agregarSaltoLinea(const std::wstring& str, size_t max_len)
+    {
+        std::wstring resultado;
+        size_t pos = 0;
+
+        while (pos < str.size())
+        {
+            size_t chunk_size = std::min(max_len, str.size() - pos);
+            resultado += str.substr(pos, chunk_size) + L'\n';
+            pos += chunk_size;
+
+            if (pos < str.size())
+            {
+                resultado += L"\n";
+            }
+        }
+        return resultado;
+    }
+
     bool checkRayHit(CE::Objeto& npc, CE::Vector2D& p1, CE::Vector2D& p2)
     {
         if (!npc.tieneComponente<CE::IBoundingBox>())
@@ -29,7 +50,7 @@ namespace IVJ
             return;
 
         dialogue->activo = true;
-        dialogue->onInteractuar(obj);
+        SysOnInteractuarDialogo(dialogue, obj);
     }
 
     bool checkDistanceInteraction(CE::Objeto& player, CE::Objeto& npc, float maxDistance)
@@ -59,5 +80,94 @@ namespace IVJ
         }
         CE::Render::Get().AddToDraw(cp1);
         CE::Render::Get().AddToDraw(cp2);
+    }
+
+    // Dialogue-specific system functions
+    void SysCargarTextoDesdeID(IDialogo* dialogo, int dialogue_id)
+    {
+        if (!dialogo)
+            return;
+
+        dialogo->id_texto = dialogue_id;
+        dialogo->texto = CE::GestorAssets::Get().getDialogue(dialogue_id);
+    }
+
+    void SysAvanzarDialogo(IDialogo* dialogo)
+    {
+        if (!dialogo)
+            return;
+
+        if (dialogo->indice_actual < dialogo->max_dialogos)
+        {
+            dialogo->indice_actual++;
+            int next_id = dialogo->id_inicial + dialogo->indice_actual - 1;
+            SysCargarTextoDesdeID(dialogo, next_id);
+        }
+    }
+
+    void SysResetearDialogo(IDialogo* dialogo)
+    {
+        if (!dialogo)
+            return;
+
+        dialogo->indice_actual = 1;
+        SysCargarTextoDesdeID(dialogo, dialogo->id_inicial);
+        dialogo->activo = false;
+        dialogo->primera_vez = true;
+        dialogo->last_interact_state = false;
+    }
+
+    void SysOnInteractuarDialogo(IDialogo* dialogo, CE::Objeto& obj)
+    {
+        if (!dialogo || !dialogo->activo)
+            return;
+
+        auto control = obj.getComponente<CE::IControl>();
+        if (!control)
+            return;
+
+        bool current_interact = control->NPCinteract;
+
+        // Detect rising edge: key just pressed (was false, now true)
+        bool key_just_pressed = current_interact && !dialogo->last_interact_state;
+
+        if (key_just_pressed)
+        {
+            // On first press, just show the current dialogue (don't advance)
+            if (dialogo->primera_vez)
+            {
+                dialogo->primera_vez = false; // Next press will advance
+            }
+            else
+            {
+                // On subsequent presses, advance to next dialogue
+                SysAvanzarDialogo(dialogo);
+            }
+        }
+
+        // Update last state for next frame
+        dialogo->last_interact_state = current_interact;
+    }
+
+    void SysOnRenderDialogo(IDialogo* dialogo)
+    {
+        if (!dialogo)
+            return;
+
+        auto dim = CE::Render::Get().GetVentana().getSize();
+        sf::RectangleShape background;
+
+        background.setSize({dim.x * 0.7f, 150.f});
+        background.setFillColor({0, 0, 0, 150});
+        background.setPosition({(dim.x / 3.f) - 200.f, 120.f});
+
+        sf::Font font = CE::GestorAssets::Get().getFont("NotJamSlab14");
+        std::wstring text_with_linebreaks = agregarSaltoLinea(dialogo->texto, 76);
+        sf::Text renderedText {font, text_with_linebreaks, 20};
+        renderedText.setPosition({(dim.x / 3.f) - 180.f, 130.f});
+
+        // add to render queue
+        CE::Render::Get().AddToDraw(background);
+        CE::Render::Get().AddToDraw(renderedText);
     }
 }

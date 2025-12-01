@@ -50,11 +50,7 @@ namespace IVJ
         explicit IDialogo(int dialogue_id);
         explicit IDialogo(int initial_dialogue_id, int max_dialogue_count);
         ~IDialogo() override {};
-        void onInteractuar(CE::Objeto &obj) override;
-        void onRender();
-        void cargarTextoDesdeID(int dialogue_id);
-        void avanzarDialogo();
-        void resetearDialogo();
+        void onInteractuar(CE::Objeto &obj) override; // Keep for interface compliance, but will call system function
 
         std::wstring texto;
         int id_texto;
@@ -64,8 +60,5 @@ namespace IVJ
         bool activo {false};
         bool primera_vez {true}; // Flag to track if this is the first interaction
         bool last_interact_state {false}; // Track previous frame's interact state
-
-    private:
-        std::wstring agregarSaltoLinea(const std::wstring& str, size_t max_len);
     };
 }
