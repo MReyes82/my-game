@@ -5,6 +5,7 @@
 #include <Juego/Maquinas/GameStates/PlayerStates.hpp>
 #include "Juego/objetos/Entidad.hpp"
 #include "Juego/Sistemas/Sistemas.hpp"
+#include "Juego/Sistemas/Quest/QuestSystems.hpp"
 #include "Motor/Camaras/CamarasGestor.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Primitivos/GestorEscenas.hpp"
@@ -50,6 +51,13 @@ namespace IVJ
         fsm_init  = std::make_shared<IdleState>(player->getIsEntityFacingRight());
         fsm_init->onEntrar(*player);
 
+        // Add IRayo component for NPC interaction detection
+        player->addComponente(std::make_shared<IRayo>(
+            player->getTransformada()->posicion,
+            player->getTransformada()->velocidad.x,
+            100.f
+        ));
+
         player->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::PLAYER));
         player->addComponente(std::make_shared<CE::ITimer>(180));
         player->addComponente(std::make_shared<CE::IWeapon>(CE::WEAPON_TYPE::KNIFE));
@@ -74,6 +82,7 @@ namespace IVJ
         registrarBotonesMouse(sf::Mouse::Button::Right, "interactuar");
         registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
         registrarBotones(sf::Keyboard::Scancode::P, "pauseboss");
+        registrarBotones(sf::Keyboard::Scancode::F, "npcinteract"); // For NPC interaction
     }
 
     void EscenaMain::summonEnemies(const int maxEnemies)
@@ -186,6 +195,7 @@ namespace IVJ
         // add here the font to the asset manager, however, this is only used for the menu and other scenes.
         // the overlay texts that uses this font load it directly (not from the asset manager)
         CE::GestorAssets::Get().agregarFont("NotJamSlab14",ASSETS "/fonts/NotJamSlab14.ttf");
+        CE::GestorAssets::Get().agregarFont("PressStart", ASSETS "/fonts/PressStart2P-Regular.ttf");
 
         // Load quest dialogues
         CE::GestorAssets::Get().cargarDialogues(ASSETS "/dialogues/quest_dialogues.csv");
@@ -231,6 +241,23 @@ namespace IVJ
         SystemCreateLootItems(lootItems, lootPositions, 60 * SECONDS_, 10); // create 10 loot items with 10 seconds timer
         SystemAddEntitiesToPool(lootItems, objetos);
         initPlayerPointer();
+
+        // Create quest NPC
+        CE::GestorAssets::Get().agregarTextura("hoja_yellow", ASSETS "/sprites/aliens/alienYellow.png",
+                                         CE::Vector2D{0, 0}, CE::Vector2D{256, 512});
+        auto npc = std::make_shared<Entidad>();
+        npc->getStats()->hp = 100;
+        npc->setPosicion(700.f, 500.f); // Position near player spawn
+        npc->addComponente(std::make_shared<CE::ISprite>(
+            CE::GestorAssets::Get().getTextura("hoja_yellow"),
+            68, 85, 0.5f)); // Scale 0.5f for proper size with 0.3f zoom camera
+        npc->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{68 * 0.5f, 85 * 0.5f})); // Match bounding box to scaled size
+        npc->addComponente(std::make_shared<CE::IControl>());
+        npc->addComponente(std::make_shared<IMaquinaEstado>());
+        npc->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::NPC)); // Mark as NPC type
+        // Add dialogue component with ID 1 as start, and 4 total dialogues (1-4)
+        npc->addComponente(std::make_shared<IVJ::IDialogo>(1, 4));
+        objetos.agregarPool(npc);
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
             CE::Vector2D{540.f, 360.f}, CE::Vector2D{1900.f, 1020.f}));
@@ -355,6 +382,10 @@ namespace IVJ
         // Handle enemy attacks on the player via system
         SystemHandleEnemyAttacks(player, enemies);
 
+        // Update quest NPCs
+        auto npcs = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::NPC);
+        SysUpdateQuestNPCs(npcs, player, dt);
+
         // Update systems related to bosses (boss uses direct velocity control like enemies)
         if (boss->estaVivo() && !isBossPaused)
         {
@@ -414,6 +445,10 @@ namespace IVJ
             {
                 isBossPaused = !isBossPaused;
             }
+            else if (accion.getNombre() == "npcinteract")
+            {
+                playerControl->NPCinteract = true;
+            }
         }
 
         else if (accion.getTipo() == CE::Botones::TipoAccion::OnRelease)
@@ -442,9 +477,13 @@ namespace IVJ
             {
                 playerControl->izq = false;
             }
-            else if (accion.getNombre() == "pausa")
+            else if (accion.getNombre() == "izquierda")
             {
-                // do nothing on release
+                playerControl->izq = false;
+            }
+            else if (accion.getNombre() == "npcinteract")
+            {
+                playerControl->NPCinteract = false;
             }
         }
     }
@@ -511,5 +550,21 @@ namespace IVJ
             //CE::printDebug("DRAW RELOADING TEXT");
             CE::Render::Get().AddToDraw(sceneOverlay->getReloadingText());
         }
+
+        // Render quest dialogues
+        auto npcs = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::NPC);
+        SysRenderQuestDialogues(npcs);
+
+#if DEBUG
+        // DEBUG: Draw ray for NPC interaction
+        if (player->getComponente<CE::IControl>()->NPCinteract)
+        {
+            if (player->tieneComponente<IRayo>())
+            {
+                auto rayo = player->getComponente<IRayo>();
+                debugDrawRay(rayo->getP1(), rayo->getP2(), sf::Color::Red);
+            }
+        }
+#endif
     }
 } // IVJ

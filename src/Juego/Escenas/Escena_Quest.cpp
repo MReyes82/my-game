@@ -249,7 +249,7 @@ namespace IVJ
             {
                 auto dialogo = f->getComponente<IVJ::IDialogo>();
                 if(!dialogo->activo) continue;
-                IVJ::SysOnRenderDialogo(dialogo);
+                IVJ::SysOnRenderDialogo(dialogo, *f);
             }
         }
 #if DEBUG

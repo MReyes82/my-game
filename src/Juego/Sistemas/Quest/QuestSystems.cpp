@@ -3,6 +3,7 @@
 #include "Motor/Render/Render.hpp"
 #include "Motor/Utils/Lerp.hpp"
 #include "Motor/Primitivos/GestorAssets.hpp"
+#include "Motor/Camaras/CamarasGestor.hpp"
 
 namespace IVJ
 {
@@ -60,6 +61,68 @@ namespace IVJ
         float distance = playerPos.distancia(npcPos);
         return distance <= maxDistance;
     }
+
+    // System functions for NPC quest handling
+    void SysUpdateQuestNPCs(std::vector<std::shared_ptr<Entidad>>& npcs,
+                            std::shared_ptr<Entidad>& player,
+                            float dt)
+    {
+        if (!player || !player->tieneComponente<IRayo>())
+            return;
+
+        auto rayo = player->getComponente<IRayo>();
+
+        for (auto& npc : npcs)
+        {
+            if (!npc->tieneComponente<IVJ::IDialogo>())
+                continue;
+
+            // Check if player is in interaction range
+            bool in_range = checkDistanceInteraction(*player, *npc, 100.f);
+            bool in_raycast = checkRayHit(*npc, rayo->getP1(), rayo->getP2());
+
+            auto dialogo = npc->getComponente<IVJ::IDialogo>();
+
+            if (in_range && in_raycast)
+            {
+                // Player is in range and facing NPC
+                // Activate dialogue on first interaction (when pressing F)
+                if (player->getComponente<CE::IControl>()->NPCinteract && !dialogo->activo)
+                {
+                    dialogo->activo = true;
+                }
+
+                // Always call onInteractuar to track key state (for edge detection)
+                if (dialogo->activo)
+                {
+                    dialogo->onInteractuar(*player);
+                }
+            }
+            else if (!in_range)
+            {
+                // Player walked away - reset dialogue
+                dialogo->activo = false;
+                SysResetearDialogo(dialogo);
+            }
+
+            npc->onUpdate(dt);
+        }
+    }
+
+    void SysRenderQuestDialogues(std::vector<std::shared_ptr<Entidad>>& npcs)
+    {
+        for (auto& npc : npcs)
+        {
+            if (npc->tieneComponente<IVJ::IDialogo>())
+            {
+                auto dialogo = npc->getComponente<IVJ::IDialogo>();
+                if (!dialogo->activo)
+                    continue;
+                SysOnRenderDialogo(dialogo, *npc);
+            }
+        }
+    }
+
     // DEBUG
     void debugDrawRay(CE::Vector2D& p1, CE::Vector2D& p2, const sf::Color& color)
     {
@@ -149,22 +212,41 @@ namespace IVJ
         dialogo->last_interact_state = current_interact;
     }
 
-    void SysOnRenderDialogo(IDialogo* dialogo)
+    void SysOnRenderDialogo(IDialogo* dialogo, CE::Objeto& npc)
     {
         if (!dialogo)
             return;
 
-        auto dim = CE::Render::Get().GetVentana().getSize();
+        // Get NPC position to position dialogue box above NPC
+        auto npcPos = npc.getTransformada()->posicion;
+
+        // Calculate NPC sprite bounds to position above head
+        float npcHeight = 85.f * 0.5f; // NPC sprite height * scale
+
+        sf::Font font = CE::GestorAssets::Get().getFont("PressStart");
+        // Reduce max line length for smaller box
+        std::wstring text_with_linebreaks = agregarSaltoLinea(dialogo->texto, 35);
+        sf::Text renderedText {font, text_with_linebreaks, 8}; // Font size 8 for PressStart2P
+
+        // Get text bounds to size background properly
+        auto textBounds = renderedText.getLocalBounds();
+        float padding = 12.f; // Increased padding for larger background box
+
         sf::RectangleShape background;
+        // Size background to fit text with padding
+        background.setSize(sf::Vector2f{textBounds.size.x + padding * 2, textBounds.size.y + padding * 2});
+        background.setFillColor({0, 0, 0, 180});
+        // Position centered above NPC head
+        background.setPosition(sf::Vector2f{
+            npcPos.x - (textBounds.size.x + padding * 2) / 2.f,
+            npcPos.y - npcHeight - 65.f
+        });
 
-        background.setSize({dim.x * 0.7f, 150.f});
-        background.setFillColor({0, 0, 0, 150});
-        background.setPosition({(dim.x / 3.f) - 200.f, 120.f});
-
-        sf::Font font = CE::GestorAssets::Get().getFont("NotJamSlab14");
-        std::wstring text_with_linebreaks = agregarSaltoLinea(dialogo->texto, 76);
-        sf::Text renderedText {font, text_with_linebreaks, 20};
-        renderedText.setPosition({(dim.x / 3.f) - 180.f, 130.f});
+        // Position text inside background with padding
+        renderedText.setPosition(sf::Vector2f{
+            background.getPosition().x + padding,
+            background.getPosition().y + padding
+        });
 
         // add to render queue
         CE::Render::Get().AddToDraw(background);
