@@ -24,7 +24,6 @@ namespace IVJ
     void Juego::OnInit(void)
     {
         std::cout<<"Inicializando Juego\n";
-        jugador_ref = std::make_shared<Entidad>();
         
         CE::GestorEscenas::Get().registrarEscena("Menu",std::make_shared<EscenaMenu>());
         //CE::GestorEscenas::Get().registrarEscena("Cuadros",std::make_shared<EscenaCuadros>());
@@ -32,7 +31,7 @@ namespace IVJ
         //CE::GestorEscenas::Get().registrarEscena("Zombie",std::make_shared<Escena_zombie>());
         CE::GestorEscenas::Get().registrarEscena("Main", std::make_shared<EscenaMain>());
         CE::GestorEscenas::Get().registrarEscena("Bestiary", std::make_shared<Escena_Bestiary>());
-        CE::GestorEscenas::Get().registrarEscena("Quest", std::make_shared<Escena_Quest>(jugador_ref));
+        //CE::GestorEscenas::Get().registrarEscena("Quest", std::make_shared<Escena_Quest>(jugador_ref));
         //CE::GestorEscenas::Get().cambiarEscena("Shaders"); //ejecutar onInit()
         CE::GestorEscenas::Get().cambiarEscena("Main"); //ejecutar onInit()
         escena_actual = &CE::GestorEscenas::Get().getEscenaActual();

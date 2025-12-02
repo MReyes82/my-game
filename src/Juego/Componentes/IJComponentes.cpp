@@ -58,7 +58,13 @@ namespace IVJ
 
     void IDialogo::onInteractuar(CE::Objeto &obj)
     {
+        // Note: Dialogue interaction is now handled directly in SysUpdateQuestNPCs
+        // to allow passing the player parameter for quest progression checking
+    }
+
+    void ISignalJammer::onInteractuar(CE::Objeto &obj)
+    {
         // Delegate to system function
-        SysOnInteractuarDialogo(this, obj);
+        SysOnInteractuarSignalJammer(this, obj);
     }
 }

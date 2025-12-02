@@ -63,6 +63,9 @@ namespace IVJ
         player->addComponente(std::make_shared<CE::IWeapon>(CE::WEAPON_TYPE::KNIFE));
         player->addComponente(std::make_shared<CE::IUtility>(CE::UTILITY_TYPE::NONE));
 
+        // Add quest component for quest tracking
+        player->addComponente(std::make_shared<IVJ::IQuest>());
+
         objetos.agregarPool(player);
     }
 
@@ -255,9 +258,58 @@ namespace IVJ
         npc->addComponente(std::make_shared<CE::IControl>());
         npc->addComponente(std::make_shared<IMaquinaEstado>());
         npc->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::NPC)); // Mark as NPC type
-        // Add dialogue component with ID 1 as start, and 4 total dialogues (1-4)
-        npc->addComponente(std::make_shared<IVJ::IDialogo>(1, 4));
+        // Add dialogue component with ID 1 as start, and 13 total dialogues (all quest dialogues)
+        npc->addComponente(std::make_shared<IVJ::IDialogo>(1, 13));
         objetos.agregarPool(npc);
+
+        // Create Signal Jammer entities for quest phases
+        // Using weapon loot box sprite as placeholder for jammers
+
+        // Phase 1 Jammer: Trap Lesson
+        auto jammer1 = std::make_shared<Entidad>();
+        jammer1->setPosicion(900.f, 400.f); // Position away from spawn
+        jammer1->addComponente(std::make_shared<CE::ISprite>(
+            CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
+            16, 16, 2.0f)); // Larger scale to make it visible
+        jammer1->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f, 32.f}));
+        jammer1->addComponente(std::make_shared<CE::IControl>());
+        jammer1->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
+        jammer1->addComponente(std::make_shared<IVJ::ISignalJammer>(1)); // Phase 1
+        jammer1->getStats()->hp = 100; // Keep alive
+        objetos.agregarPool(jammer1);
+
+        // Phase 2 Jammer: Ranged Attack Lesson
+        auto jammer2 = std::make_shared<Entidad>();
+        jammer2->setPosicion(1200.f, 600.f);
+        jammer2->addComponente(std::make_shared<CE::ISprite>(
+            CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
+            16, 16, 2.0f));
+        jammer2->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f, 32.f}));
+        jammer2->addComponente(std::make_shared<CE::IControl>());
+        jammer2->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
+        jammer2->addComponente(std::make_shared<IVJ::ISignalJammer>(2)); // Phase 2
+        // Initialize Phase 2 burst shooting timers
+        auto jammer2Comp = jammer2->getComponente<IVJ::ISignalJammer>();
+        jammer2Comp->rangedAttackTimer = std::make_shared<CE::ITimer>(180); // 3 seconds at 60 FPS
+        jammer2Comp->projectileBurstTimer = std::make_shared<CE::ITimer>(30); // 30 frames between projectiles
+        jammer2->getStats()->hp = 100;
+        objetos.agregarPool(jammer2);
+
+        // Phase 3 Jammer: Teleport Lesson
+        auto jammer3 = std::make_shared<Entidad>();
+        jammer3->setPosicion(600.f, 700.f);
+        jammer3->addComponente(std::make_shared<CE::ISprite>(
+            CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
+            16, 16, 2.0f));
+        jammer3->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f, 32.f}));
+        jammer3->addComponente(std::make_shared<CE::IControl>());
+        jammer3->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
+        jammer3->addComponente(std::make_shared<IVJ::ISignalJammer>(3)); // Phase 3
+        // Initialize Phase 3 teleport timer (starts at 2 seconds, can change to 5 seconds)
+        auto jammer3Comp = jammer3->getComponente<IVJ::ISignalJammer>();
+        jammer3Comp->teleportTimer = std::make_shared<CE::ITimer>(120); // 2 seconds at 60 FPS
+        jammer3->getStats()->hp = 100;
+        objetos.agregarPool(jammer3);
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
             CE::Vector2D{540.f, 360.f}, CE::Vector2D{1900.f, 1020.f}));
@@ -385,6 +437,31 @@ namespace IVJ
         // Update quest NPCs
         auto npcs = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::NPC);
         SysUpdateQuestNPCs(npcs, player, dt);
+
+        // Update quest state and signal jammers
+        SysUpdateQuestState(player);
+        auto jammers = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::SIGNAL_JAMMER);
+        SysUpdateSignalJammers(jammers, player, objetos, dt);
+
+        // Handle player interaction with signal jammers
+        if (player->getComponente<CE::IControl>()->NPCinteract && player->tieneComponente<IRayo>())
+        {
+            auto rayo = player->getComponente<IRayo>();
+            for (auto& jammer : jammers)
+            {
+                if (!jammer->tieneComponente<IVJ::ISignalJammer>())
+                    continue;
+
+                bool in_range = checkDistanceInteraction(*player, *jammer, 100.f);
+                bool in_raycast = checkRayHit(*jammer, rayo->getP1(), rayo->getP2());
+
+                if (in_range && in_raycast)
+                {
+                    auto jammerComp = jammer->getComponente<IVJ::ISignalJammer>();
+                    jammerComp->onInteractuar(*jammer); // Pass jammer entity, not player
+                }
+            }
+        }
 
         // Update systems related to bosses (boss uses direct velocity control like enemies)
         if (boss->estaVivo() && !isBossPaused)
@@ -523,7 +600,12 @@ namespace IVJ
 
     void EscenaMain::onRender()
     {
+#if DEBUG
         CE::Render::Get().GetVentana().setMouseCursorVisible(true);
+#elif !DEBUG // if release build (not debug, I don't have a flag for release build)
+        CE::Render::Get().GetVentana().setMouseCursorVisible(false);
+#endif
+
         for (auto& b : background)
             CE::Render::Get().AddToDraw(b);
 

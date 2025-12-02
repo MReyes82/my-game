@@ -41,6 +41,7 @@ namespace CE
         LOOT_WEAPON,
         LOOT_UTILITY,
         PROJECTILE,
+        SIGNAL_JAMMER,
         STATIC,
         DYNAMIC,
     };
