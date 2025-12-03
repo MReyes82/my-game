@@ -23,6 +23,8 @@ namespace IVJ
 
     // Quest system functions
     [[maybe_unused]] void SysOnInteractuarSignalJammer(ISignalJammer* jammer, CE::Objeto& jammerEntity);
+    [[maybe_unused]] void SysResetJammerStabilization(std::vector<std::shared_ptr<Entidad>>& jammers);
+    [[maybe_unused]] void SysRenderStabilizationText(std::vector<std::shared_ptr<Entidad>>& jammers);
     [[maybe_unused]] void SysUpdateQuestState(std::shared_ptr<Entidad>& player);
     [[maybe_unused]] void SysUpdateSignalJammers(std::vector<std::shared_ptr<Entidad>>& jammers,
                                                   std::shared_ptr<Entidad>& player,
@@ -47,6 +49,15 @@ namespace IVJ
     [[maybe_unused]] void SysInitializeTeleportPositions(ISignalJammer* jammer, CE::Objeto& jammerEntity);
     [[maybe_unused]] void SysJammerTeleport(ISignalJammer* jammer, CE::Objeto& jammerEntity, float dt);
     [[maybe_unused]] void SysCheckPhase3Complete(ISignalJammer* jammer, IQuest* quest, CE::Objeto& jammerEntity);
+
+    // Navigation Arrow System - guide player to next objective
+    [[maybe_unused]] void SysUpdateQuestNavigationTarget(std::shared_ptr<Entidad>& player,
+                                                          std::vector<std::shared_ptr<Entidad>>& npcs,
+                                                          std::vector<std::shared_ptr<Entidad>>& jammers);
+    [[maybe_unused]] void SysInitNavigationArrow(std::shared_ptr<Entidad>& player, CE::Pool& pool);
+    [[maybe_unused]] void SysUpdateNavigationArrow(std::shared_ptr<Entidad>& player,
+                                                    std::vector<std::shared_ptr<Entidad>>& npcs);
+    [[maybe_unused]] void SysRenderNavigationArrow(std::shared_ptr<Entidad>& player);
 
     // DEBUG
     [[maybe_unused]] void debugDrawRay(CE::Vector2D& p1, CE::Vector2D& p2, const sf::Color& color = sf::Color::Red);

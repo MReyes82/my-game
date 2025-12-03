@@ -188,10 +188,12 @@ namespace IVJ
         CE::GestorAssets::Get().agregarTextura("weaponLootBoxSprite", ASSETS "/sprites/items/PowerUps2.png",
                                                CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
         CE::GestorAssets::Get().agregarTextura("utilityLootBoxSprite", ASSETS "/sprites/items/PowerUps1.png",
-                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
+                                               CE::Vector2D{0,0}, CE::Vector2D{16,16});
         CE::GestorAssets::Get().agregarTextura("bulletSprite", ASSETS "/sprites/items/Bullet1.png",
-                                               CE::Vector2D{0, 0}, CE::Vector2D{16.f, 16.f});
-        //
+                                               CE::Vector2D{0,0}, CE::Vector2D{16,16});
+        CE::GestorAssets::Get().agregarTextura("navigation_e", ASSETS "/sprites/items/assets UI/Icons/navigation_e.png",
+                                               CE::Vector2D{0,0}, CE::Vector2D{32,32});
+
         CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirageSprite.png",
                                                       CE::Vector2D{0, 0}, CE::Vector2D{264.f, 192.f});
 
@@ -250,7 +252,7 @@ namespace IVJ
                                          CE::Vector2D{0, 0}, CE::Vector2D{256, 512});
         auto npc = std::make_shared<Entidad>();
         npc->getStats()->hp = 100;
-        npc->setPosicion(700.f, 500.f); // Position near player spawn
+        npc->setPosicion(1920.f, 1920.f); // Position at center of map - player spawns at (540, 360)
         npc->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("hoja_yellow"),
             68, 85, 0.5f)); // Scale 0.5f for proper size with 0.3f zoom camera
@@ -264,10 +266,11 @@ namespace IVJ
 
         // Create Signal Jammer entities for quest phases
         // Using weapon loot box sprite as placeholder for jammers
+        // Spread them across different areas of the map to make navigation arrow useful
 
-        // Phase 1 Jammer: Trap Lesson
+        // Phase 1 Jammer: Trap Lesson - Northeast area
         auto jammer1 = std::make_shared<Entidad>();
-        jammer1->setPosicion(900.f, 400.f); // Position away from spawn
+        jammer1->setPosicion(3200.f, 800.f); // Northeast area
         jammer1->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
             16, 16, 2.0f)); // Larger scale to make it visible
@@ -275,12 +278,15 @@ namespace IVJ
         jammer1->addComponente(std::make_shared<CE::IControl>());
         jammer1->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
         jammer1->addComponente(std::make_shared<IVJ::ISignalJammer>(1)); // Phase 1
+        // Initialize stabilization timer (6 seconds at 60 FPS = 360 frames)
+        auto jammer1Comp = jammer1->getComponente<IVJ::ISignalJammer>();
+        jammer1Comp->stabilizationTimer = std::make_shared<CE::ITimer>(360);
         jammer1->getStats()->hp = 100; // Keep alive
         objetos.agregarPool(jammer1);
 
-        // Phase 2 Jammer: Ranged Attack Lesson
+        // Phase 2 Jammer: Ranged Attack Lesson - Southwest area
         auto jammer2 = std::make_shared<Entidad>();
-        jammer2->setPosicion(1200.f, 600.f);
+        jammer2->setPosicion(800.f, 3000.f); // Southwest area
         jammer2->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
             16, 16, 2.0f));
@@ -292,12 +298,13 @@ namespace IVJ
         auto jammer2Comp = jammer2->getComponente<IVJ::ISignalJammer>();
         jammer2Comp->rangedAttackTimer = std::make_shared<CE::ITimer>(180); // 3 seconds at 60 FPS
         jammer2Comp->projectileBurstTimer = std::make_shared<CE::ITimer>(30); // 30 frames between projectiles
+        jammer2Comp->stabilizationTimer = std::make_shared<CE::ITimer>(360); // 6 seconds for stabilization
         jammer2->getStats()->hp = 100;
         objetos.agregarPool(jammer2);
 
-        // Phase 3 Jammer: Teleport Lesson
+        // Phase 3 Jammer: Teleport Lesson - Southeast corner
         auto jammer3 = std::make_shared<Entidad>();
-        jammer3->setPosicion(600.f, 700.f);
+        jammer3->setPosicion(3000.f, 3200.f); // Southeast corner
         jammer3->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
             16, 16, 2.0f));
@@ -308,8 +315,12 @@ namespace IVJ
         // Initialize Phase 3 teleport timer (starts at 2 seconds, can change to 5 seconds)
         auto jammer3Comp = jammer3->getComponente<IVJ::ISignalJammer>();
         jammer3Comp->teleportTimer = std::make_shared<CE::ITimer>(120); // 2 seconds at 60 FPS
+        jammer3Comp->stabilizationTimer = std::make_shared<CE::ITimer>(360); // 6 seconds for stabilization
         jammer3->getStats()->hp = 100;
         objetos.agregarPool(jammer3);
+
+        // Initialize navigation arrow for quest guidance
+        SysInitNavigationArrow(player, objetos);
 
         CE::GestorCamaras::Get().agregarCamara(std::make_shared<CE::CamaraSmoothFollow>(
             CE::Vector2D{540.f, 360.f}, CE::Vector2D{1900.f, 1020.f}));
@@ -443,6 +454,11 @@ namespace IVJ
         auto jammers = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::SIGNAL_JAMMER);
         SysUpdateSignalJammers(jammers, player, objetos, dt);
 
+        // Update navigation arrow target based on quest progress
+        SysUpdateQuestNavigationTarget(player, npcs, jammers);
+        // Update arrow position and rotation to point at target (hide if dialogue is active)
+        SysUpdateNavigationArrow(player, npcs);
+
         // Handle player interaction with signal jammers
         if (player->getComponente<CE::IControl>()->NPCinteract && player->tieneComponente<IRayo>())
         {
@@ -462,7 +478,11 @@ namespace IVJ
                 }
             }
         }
-
+        else
+        {
+            // Key released, reset stabilization progress for all jammers
+            SysResetJammerStabilization(jammers);
+        }
         // Update systems related to bosses (boss uses direct velocity control like enemies)
         if (boss->estaVivo() && !isBossPaused)
         {
@@ -636,6 +656,13 @@ namespace IVJ
         // Render quest dialogues
         auto npcs = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::NPC);
         SysRenderQuestDialogues(npcs);
+
+        // Render navigation arrow pointing to next quest objective
+        SysRenderNavigationArrow(player);
+
+        // Render stabilization progress text for jammers being stabilized
+        auto jammers = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::SIGNAL_JAMMER);
+        SysRenderStabilizationText(jammers);
 
 #if DEBUG
         // DEBUG: Draw ray for NPC interaction

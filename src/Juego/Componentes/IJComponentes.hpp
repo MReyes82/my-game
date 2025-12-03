@@ -79,7 +79,10 @@ namespace IVJ
         IQuest() : current_phase(QUEST_PHASE::NOT_STARTED), last_phase(QUEST_PHASE::NOT_STARTED),
                    phase1_complete(false), phase2_complete(false), phase3_complete(false),
                    phase2_activated(false), phase3_activated(false),
-                   max_dialogue_index(4) {} // Start with dialogues 1-4 accessible
+                   has_talked_to_npc_initially(false), // Track if player has had first NPC interaction
+                   max_dialogue_index(4), // Start with dialogues 1-4 accessible
+                   navigation_target(nullptr), // Navigation arrow target
+                   navigation_arrow(nullptr) {} // Navigation arrow entity
         ~IQuest() override {}
 
         QUEST_PHASE current_phase;
@@ -91,9 +94,14 @@ namespace IVJ
         // Phase activation flags - phases don't start until player talks to NPC after previous phase
         bool phase2_activated; // Set to true when player talks to NPC after Phase 1 completion
         bool phase3_activated; // Set to true when player talks to NPC after Phase 2 completion
+        bool has_talked_to_npc_initially; // Set to true after first NPC interaction
 
         // Dialogue progression control
         int max_dialogue_index; // Maximum dialogue index the player can currently access
+
+        // Navigation arrow - points to next quest objective
+        std::shared_ptr<Entidad> navigation_target; // Current target entity (NPC or Signal Jammer)
+        std::shared_ptr<Entidad> navigation_arrow; // Arrow entity that follows player and points to target
     };
 
     // Component for signal jammer entities
@@ -103,7 +111,8 @@ namespace IVJ
         explicit ISignalJammer(int phase_number)
             : phase_number(phase_number), stabilized(false), trap_spawned(false), projectile_spawned(false),
               currentBurstCount(0), currentProjectilesInBurst(0), isShootingBurst(false),
-              teleport_initialized(false), current_position_index(0) {}
+              teleport_initialized(false), current_position_index(0),
+              is_being_stabilized(false) {} // Stabilization state
         ~ISignalJammer() override {}
 
         void onInteractuar(CE::Objeto& obj) override; // Will call system function
@@ -114,6 +123,10 @@ namespace IVJ
         bool projectile_spawned; // For phase 2: have projectiles been spawned around this jammer?
         std::vector<std::shared_ptr<Entidad>> traps; // Store trap entities for phase 1
         std::vector<std::shared_ptr<Entidad>> projectiles; // Store projectile entities for phase 2
+
+        // Stabilization mechanics (hold-press for 6 seconds)
+        std::shared_ptr<CE::ITimer> stabilizationTimer; // Timer for hold-press stabilization (6 seconds)
+        bool is_being_stabilized; // Is player currently holding the interact key to stabilize?
 
         // Phase 2: Ranged attack burst mechanics
         std::shared_ptr<CE::ITimer> rangedAttackTimer;  // 3 second timer between burst sequences

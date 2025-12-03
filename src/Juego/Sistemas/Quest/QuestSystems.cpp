@@ -87,6 +87,13 @@ namespace IVJ
                 {
                     dialogo->activo = true;
 
+                    // Mark that player has talked to NPC for the first time
+                    if (quest && !quest->has_talked_to_npc_initially)
+                    {
+                        quest->has_talked_to_npc_initially = true;
+                        CE::printDebug("[QUEST] Player has initiated first NPC interaction");
+                    }
+
                     // Update dialogue progression limits and activate phases based on quest state
                     if (quest)
                     {
@@ -316,13 +323,99 @@ namespace IVJ
 
     void SysOnInteractuarSignalJammer(ISignalJammer* jammer, CE::Objeto& jammerEntity)
     {
-        if (!jammer || jammer->stabilized)
+        if (!jammer || jammer->stabilized || !jammer->stabilizationTimer)
             return;
 
-        // Player interacting with jammer - mark as stabilized
-        // DON'T set HP to 0 yet - let phase complete function do it after trap cleanup
-        jammer->stabilized = true;
-        CE::printDebug("[QUEST] Signal Jammer Phase " + std::to_string(jammer->phase_number) + " stabilized!");
+        // Mark that player is currently stabilizing the jammer
+        jammer->is_being_stabilized = true;
+
+        // Update stabilization timer
+        jammer->stabilizationTimer->frame_actual++;
+
+        // Check if stabilization is complete (6 seconds = 360 frames at 60 FPS)
+        if (jammer->stabilizationTimer->frame_actual >= jammer->stabilizationTimer->max_frame)
+        {
+            jammer->stabilized = true;
+            jammer->is_being_stabilized = false;
+            CE::printDebug("[QUEST] Signal Jammer Phase " + std::to_string(jammer->phase_number) + " stabilized!");
+        }
+    }
+
+    void SysResetJammerStabilization(std::vector<std::shared_ptr<Entidad>>& jammers)
+    {
+        // Reset stabilization progress for all jammers that are being stabilized but key was released
+        for (auto& jammer : jammers)
+        {
+            if (!jammer->tieneComponente<ISignalJammer>())
+                continue;
+
+            auto jammerComp = jammer->getComponente<ISignalJammer>();
+            if (jammerComp->is_being_stabilized && !jammerComp->stabilized)
+            {
+                // Player released the key, reset stabilization progress
+                jammerComp->stabilizationTimer->frame_actual = 0;
+                jammerComp->is_being_stabilized = false;
+                CE::printDebug("[QUEST] Jammer Phase " + std::to_string(jammerComp->phase_number) + " stabilization reset - player released key");
+            }
+        }
+    }
+
+    void SysRenderStabilizationText(std::vector<std::shared_ptr<Entidad>>& jammers)
+    {
+        // Render "Estabilizando..." text for any jammer currently being stabilized
+        for (auto& jammer : jammers)
+        {
+            if (!jammer->tieneComponente<ISignalJammer>())
+                continue;
+
+            auto jammerComp = jammer->getComponente<ISignalJammer>();
+
+            // Only render if jammer is actively being stabilized
+            if (!jammerComp->is_being_stabilized || jammerComp->stabilized)
+                continue;
+
+            // Get jammer position to position text above it
+            auto jammerPos = jammer->getTransformada()->posicion;
+
+            // Load PressStart2P font
+            sf::Font font = CE::GestorAssets::Get().getFont("PressStart");
+
+            // Create text with progress indicator
+            float progress = static_cast<float>(jammerComp->stabilizationTimer->frame_actual) /
+                           static_cast<float>(jammerComp->stabilizationTimer->max_frame);
+            int percentage = static_cast<int>(progress * 100.f);
+
+            std::string textString = "Estabilizando... " + std::to_string(percentage) + "%";
+            sf::Text renderedText {font, textString, 10}; // Font size 10 for visibility
+            renderedText.setFillColor(sf::Color::White);
+
+            // Get text bounds to center it properly
+            auto textBounds = renderedText.getLocalBounds();
+            float padding = 8.f;
+
+            // Create background rectangle
+            sf::RectangleShape background;
+            background.setSize(sf::Vector2f{textBounds.size.x + padding * 2, textBounds.size.y + padding * 2});
+            background.setFillColor({0, 0, 0, 200}); // Darker background for better visibility
+            background.setOutlineColor(sf::Color::Yellow); // Yellow outline to indicate active process
+            background.setOutlineThickness(2.f);
+
+            // Position centered above jammer
+            background.setPosition(sf::Vector2f{
+                jammerPos.x - (textBounds.size.x + padding * 2) / 2.f,
+                jammerPos.y - 50.f // Position above the jammer
+            });
+
+            // Position text inside background with padding
+            renderedText.setPosition(sf::Vector2f{
+                background.getPosition().x + padding,
+                background.getPosition().y + padding
+            });
+
+            // Add to render queue
+            CE::Render::Get().AddToDraw(background);
+            CE::Render::Get().AddToDraw(renderedText);
+        }
     }
 
     void SysUpdateQuestState(std::shared_ptr<Entidad>& player)
@@ -429,8 +522,8 @@ namespace IVJ
                     SysCheckPhase2Complete(jammerComp, quest, *jammer);
                 }
 
-                // Only shoot projectiles if phase is active and jammer not stabilized
-                if (quest->current_phase == QUEST_PHASE::PHASE_2_RANGED_LESSON && !jammerComp->stabilized)
+                // Only shoot projectiles if phase is active, jammer not stabilized, AND not being stabilized
+                if (quest->current_phase == QUEST_PHASE::PHASE_2_RANGED_LESSON && !jammerComp->stabilized && !jammerComp->is_being_stabilized)
                 {
                     // Initialize timers on first frame if needed
                     if (!jammerComp->projectile_spawned)
@@ -455,8 +548,8 @@ namespace IVJ
                     SysCheckPhase3Complete(jammerComp, quest, *jammer);
                 }
 
-                // Only teleport if phase is active and jammer not stabilized
-                if (quest->current_phase == QUEST_PHASE::PHASE_3_TELEPORT_LESSON && !jammerComp->stabilized)
+                // Only teleport if phase is active, jammer not stabilized, AND not being stabilized
+                if (quest->current_phase == QUEST_PHASE::PHASE_3_TELEPORT_LESSON && !jammerComp->stabilized && !jammerComp->is_being_stabilized)
                 {
                     // Initialize teleport positions on first frame
                     if (!jammerComp->teleport_initialized)
@@ -746,7 +839,7 @@ namespace IVJ
         // Get the initial jammer position as the center of the circle
         const auto& centerPos = jammerEntity.getTransformada()->posicion;
         const int numPositions = 10; // 10 predefined positions
-        const float radius = 200.f; // Distance from center
+        const float radius = 100.f; // Distance from center
 
         // Generate 10 positions in a circle around the initial position
         for (int i = 0; i < numPositions; ++i)
@@ -816,7 +909,7 @@ namespace IVJ
             }
             else // 67% chance
             {
-                jammer->teleportTimer->max_frame = 120; // 2 seconds at 60 FPS
+                jammer->teleportTimer->max_frame = 60; // 1 seconds at 60 FPS
                 CE::printDebug("[QUEST] Next teleport in 2 seconds");
             }
 
@@ -837,6 +930,231 @@ namespace IVJ
 
             // Remove the jammer from the scene
             jammerEntity.getStats()->hp = 0;
+        }
+    }
+
+    // ============================================================================
+    // NAVIGATION ARROW SYSTEM
+    // ============================================================================
+
+    void SysUpdateQuestNavigationTarget(std::shared_ptr<Entidad>& player,
+                                        std::vector<std::shared_ptr<Entidad>>& npcs,
+                                        std::vector<std::shared_ptr<Entidad>>& jammers)
+    {
+        if (!player || !player->tieneComponente<IQuest>())
+            return;
+
+        auto quest = player->getComponente<IQuest>();
+
+        // Determine navigation target based on quest state
+        // Priority order: NPC (for briefings) -> Active Jammer -> NPC (for debriefings)
+
+        // Case 0: Player hasn't talked to NPC for the first time - always point to NPC
+        if (!quest->has_talked_to_npc_initially)
+        {
+            for (auto& npc : npcs)
+            {
+                if (npc->tieneComponente<IDialogo>())
+                {
+                    quest->navigation_target = npc;
+                    return;
+                }
+            }
+        }
+
+        // Case 1: Need to return to NPC for briefing after completing a phase
+        if ((quest->phase1_complete && !quest->phase2_activated) ||
+            (quest->phase2_complete && !quest->phase3_activated))
+        {
+            // Point to NPC
+            for (auto& npc : npcs)
+            {
+                if (npc->tieneComponente<IDialogo>())
+                {
+                    quest->navigation_target = npc;
+                    return;
+                }
+            }
+        }
+
+        // Case 2: Phase 1 active - point to jammer 1
+        else if (quest->current_phase == QUEST_PHASE::PHASE_1_TRAP_LESSON && !quest->phase1_complete)
+        {
+            for (auto& jammer : jammers)
+            {
+                if (jammer->tieneComponente<ISignalJammer>())
+                {
+                    auto jammerComp = jammer->getComponente<ISignalJammer>();
+                    if (jammerComp->phase_number == 1 && !jammerComp->stabilized)
+                    {
+                        quest->navigation_target = jammer;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Case 3: Phase 2 active - point to jammer 2
+        else if (quest->current_phase == QUEST_PHASE::PHASE_2_RANGED_LESSON && !quest->phase2_complete)
+        {
+            for (auto& jammer : jammers)
+            {
+                if (jammer->tieneComponente<ISignalJammer>())
+                {
+                    auto jammerComp = jammer->getComponente<ISignalJammer>();
+                    if (jammerComp->phase_number == 2 && !jammerComp->stabilized)
+                    {
+                        quest->navigation_target = jammer;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Case 4: Phase 3 active - point to jammer 3
+        else if (quest->current_phase == QUEST_PHASE::PHASE_3_TELEPORT_LESSON && !quest->phase3_complete)
+        {
+            for (auto& jammer : jammers)
+            {
+                if (jammer->tieneComponente<ISignalJammer>())
+                {
+                    auto jammerComp = jammer->getComponente<ISignalJammer>();
+                    if (jammerComp->phase_number == 3 && !jammerComp->stabilized)
+                    {
+                        quest->navigation_target = jammer;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // If no valid target found, clear navigation target
+        quest->navigation_target = nullptr;
+    }
+
+    void SysInitNavigationArrow(std::shared_ptr<Entidad>& player, CE::Pool& pool)
+    {
+        if (!player || !player->tieneComponente<IQuest>())
+            return;
+
+        auto quest = player->getComponente<IQuest>();
+
+        // Create arrow entity if it doesn't exist
+        if (!quest->navigation_arrow)
+        {
+            auto arrow = std::make_shared<Entidad>();
+            arrow->setPosicion(0.f, 0.f); // Will be updated in SysUpdateNavigationArrow
+            arrow->addComponente(std::make_shared<CE::ISprite>(
+                CE::GestorAssets::Get().getTextura("navigation_e"),
+                32, 32, 0.3f));
+            arrow->getStats()->hp = 1; // Keep alive
+
+            // Store reference in quest component
+            quest->navigation_arrow = arrow;
+
+            // Add to pool
+            pool.agregarPool(arrow);
+
+            CE::printDebug("[QUEST] Navigation arrow entity created");
+        }
+    }
+
+    void SysUpdateNavigationArrow(std::shared_ptr<Entidad>& player,
+                                  std::vector<std::shared_ptr<Entidad>>& npcs)
+    {
+        if (!player || !player->tieneComponente<IQuest>())
+            return;
+
+        auto quest = player->getComponente<IQuest>();
+
+        // Don't update if arrow doesn't exist or quest is complete
+        if (!quest->navigation_arrow || quest->phase3_complete)
+        {
+            // Hide arrow if quest is complete
+            if (quest->navigation_arrow)
+            {
+                quest->navigation_arrow->getStats()->hp = 0;
+            }
+            return;
+        }
+
+        // Check if any dialogue is currently active - hide arrow during dialogues
+        for (auto& npc : npcs)
+        {
+            if (npc->tieneComponente<IDialogo>())
+            {
+                auto dialogo = npc->getComponente<IDialogo>();
+                if (dialogo->activo)
+                {
+                    // Hide arrow when dialogue is active
+                    quest->navigation_arrow->setPosicion(-10000.f, -10000.f);
+                    return;
+                }
+            }
+        }
+
+        // Don't show if no target
+        if (!quest->navigation_target)
+        {
+            // Move arrow off-screen
+            quest->navigation_arrow->setPosicion(-10000.f, -10000.f);
+            return;
+        }
+
+        // Get player and target positions
+        auto playerPos = player->getTransformada()->posicion;
+        auto targetPos = quest->navigation_target->getTransformada()->posicion;
+
+        // Calculate direction to target
+        CE::Vector2D directionToTarget = targetPos - playerPos;
+        float distance = directionToTarget.magnitud();
+
+        // Don't show arrow if player is very close to target (within 80 units)
+        if (distance < 80.f)
+        {
+            // Move arrow off-screen
+            quest->navigation_arrow->setPosicion(-10000.f, -10000.f);
+            return;
+        }
+
+        directionToTarget = directionToTarget.normalizacion();
+
+        // Calculate angle to rotate arrow sprite
+        float angle = std::atan2(directionToTarget.y, directionToTarget.x) * 180.f / 3.14159f;
+
+        // Position arrow offset from player (floating above/around player)
+        float arrowDistance = 60.f; // Distance from player center
+        CE::Vector2D arrowOffset = directionToTarget.escala(arrowDistance);
+        CE::Vector2D arrowPos = playerPos + arrowOffset;
+
+        // Update arrow position and rotation
+        quest->navigation_arrow->setPosicion(arrowPos.x, arrowPos.y);
+
+        // Update sprite rotation and add pulsing effect
+        if (quest->navigation_arrow->tieneComponente<CE::ISprite>())
+        {
+            auto sprite = quest->navigation_arrow->getComponente<CE::ISprite>();
+            sprite->m_sprite.setRotation(sf::degrees(angle));
+
+            // Add pulsing effect based on time
+            static float pulseTime = 0.f;
+            pulseTime += 0.05f;
+            float pulse = 0.8f + 0.2f * std::sin(pulseTime);
+            sprite->m_sprite.setScale(sf::Vector2f(1.5f * pulse, 1.5f * pulse));
+        }
+    }
+
+    void SysRenderNavigationArrow(std::shared_ptr<Entidad>& player)
+    {
+        if (!player || !player->tieneComponente<IQuest>())
+            return;
+
+        auto quest = player->getComponente<IQuest>();
+
+        // Render arrow entity if it exists and is alive
+        if (quest->navigation_arrow && quest->navigation_arrow->estaVivo())
+        {
+            CE::Render::Get().AddToDraw(*quest->navigation_arrow);
         }
     }
 }
