@@ -2,6 +2,7 @@
 
 #include "Motor/Primitivos/GestorAssets.hpp"
 #include "Motor/Render/Render.hpp"
+#include "Juego/Sistemas/Quest/QuestSystems.hpp"
 
 namespace IVJ
 {
@@ -45,106 +46,25 @@ namespace IVJ
         : IInteractable(), texto{L""}, id_texto{dialogue_id}, id_inicial{dialogue_id},
           indice_actual{1}, max_dialogos{1}
     {
-        cargarTextoDesdeID(dialogue_id);
+        SysCargarTextoDesdeID(this, dialogue_id);
     }
 
     IDialogo::IDialogo(int initial_dialogue_id, int max_dialogue_count)
         : IInteractable(), texto{L""}, id_texto{initial_dialogue_id},
           id_inicial{initial_dialogue_id}, indice_actual{1}, max_dialogos{max_dialogue_count}
     {
-        cargarTextoDesdeID(initial_dialogue_id);
-    }
-
-    void IDialogo::cargarTextoDesdeID(int dialogue_id)
-    {
-        id_texto = dialogue_id;
-        texto = CE::GestorAssets::Get().getDialogue(dialogue_id);
-    }
-
-    void IDialogo::avanzarDialogo()
-    {
-        if (indice_actual < max_dialogos)
-        {
-            indice_actual++;
-            int next_id = id_inicial + indice_actual - 1;
-            cargarTextoDesdeID(next_id);
-        }
-    }
-
-    void IDialogo::resetearDialogo()
-    {
-        indice_actual = 1;
-        cargarTextoDesdeID(id_inicial);
-        activo = false;
-        primera_vez = true; // Reset so next interaction shows first dialogue
-        last_interact_state = false; // Reset interaction state
+        SysCargarTextoDesdeID(this, initial_dialogue_id);
     }
 
     void IDialogo::onInteractuar(CE::Objeto &obj)
     {
-        if (!activo)
-        {
-            return;
-        }
-
-        auto control = obj.getComponente<CE::IControl>();
-        bool current_interact = control->NPCinteract;
-
-        // Detect rising edge: key just pressed (was false, now true)
-        bool key_just_pressed = current_interact && !last_interact_state;
-
-        if (key_just_pressed)
-        {
-            // On first press, just show the current dialogue (don't advance)
-            if (primera_vez)
-            {
-                primera_vez = false; // Next press will advance
-            }
-            else
-            {
-                // On subsequent presses, advance to next dialogue
-                avanzarDialogo();
-            }
-        }
-
-        // Update last state for next frame
-        last_interact_state = current_interact;
+        // Note: Dialogue interaction is now handled directly in SysUpdateQuestNPCs
+        // to allow passing the player parameter for quest progression checking
     }
 
-    std::wstring IDialogo::agregarSaltoLinea(const std::wstring& str, size_t max_len)
+    void ISignalJammer::onInteractuar(CE::Objeto &obj)
     {
-        std::wstring resultado;
-        size_t pos = 0;
-
-        while (pos < str.size())
-        {
-            size_t chunk_size = std::min(max_len, str.size() - pos);
-            resultado += str.substr(pos, chunk_size) + L'\n'; // extract the chunk and add newline
-            pos += chunk_size; // move to the next chunk
-
-            if (pos < str.size())
-            {
-                resultado += L"\n"; // add extra newline for paragraph spacing;
-            }
-        }
-        return resultado;
-    }
-
-    void IDialogo::onRender()
-    {
-        auto dim = CE::Render::Get().GetVentana().getSize();
-        sf::RectangleShape background;
-
-        background.setSize({dim.x * 0.7f, 150.f});
-        background.setFillColor({0, 0, 0, 150});
-        background.setPosition({(dim.x / 3.f) - 200.f, 120.f});
-
-        sf::Font font = CE::GestorAssets::Get().getFont("NotJamSlab14");
-        std::wstring text_with_linebreaks = agregarSaltoLinea(texto, 76);
-        sf::Text renderedText {font, text_with_linebreaks, 20};
-        renderedText.setPosition({(dim.x / 3.f) - 180.f, 130.f});
-        // add to render queue
-        CE::Render::Get().AddToDraw(background);
-        CE::Render::Get().AddToDraw(renderedText);
+        // Delegate to system function
+        SysOnInteractuarSignalJammer(this, obj);
     }
 }

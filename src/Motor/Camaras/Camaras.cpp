@@ -1,6 +1,6 @@
 #include "Camaras.hpp"
 
-#include <bits/stl_algo.h>
+#include <algorithm>
 
 #include "../GUI/GLogger.hpp"
 #include "../Utils/Lerp.hpp"

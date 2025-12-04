@@ -34,7 +34,7 @@ namespace IVJ
         : CE::Escena{}
     {
             enemiesKilledStats = std::make_shared<std::array<int, 10>>();
-            enemiesKilledStats->fill(0); // mark 1 for testing as discovered
+            enemiesKilledStats->fill(1); // mark 1 for testing as discovered
             // NOTE: currently marking everything as discovered causes undefined behavior, since
 
             /*if (!DEBUG)

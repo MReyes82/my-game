@@ -144,7 +144,7 @@ namespace IVJ
                 {
                     // Player walked away - reset dialogue
                     dialogo->activo = false;
-                    dialogo->resetearDialogo();
+                    IVJ::SysResetearDialogo(dialogo);
                 }
             }
 
@@ -249,7 +249,7 @@ namespace IVJ
             {
                 auto dialogo = f->getComponente<IVJ::IDialogo>();
                 if(!dialogo->activo) continue;
-                dialogo->onRender();
+                IVJ::SysOnRenderDialogo(dialogo, *f);
             }
         }
 #if DEBUG
