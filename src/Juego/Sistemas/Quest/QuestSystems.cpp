@@ -152,7 +152,26 @@ namespace IVJ
             {
                 // Player walked away - reset dialogue
                 dialogo->activo = false;
-                SysResetearDialogo(dialogo);
+
+                // If all dialogues are complete, mark NPC and arrow for deletion
+                if (quest && quest->all_dialogues_complete)
+                {
+                    // Mark NPC for deletion
+                    npc->getStats()->hp = 0;
+
+                    // Mark navigation arrow for deletion
+                    if (quest->navigation_arrow)
+                    {
+                        quest->navigation_arrow->getStats()->hp = 0;
+                    }
+
+                    CE::printDebug("[QUEST] All dialogues complete and player walked away. NPC and arrow marked for deletion.");
+                }
+                else
+                {
+                    // Normal dialogue reset if quest not complete
+                    SysResetearDialogo(dialogo);
+                }
             }
 
             npc->onUpdate(dt);
@@ -229,6 +248,17 @@ namespace IVJ
             dialogo->indice_actual++;
             int next_id = dialogo->id_inicial + dialogo->indice_actual - 1;
             SysCargarTextoDesdeID(dialogo, next_id);
+
+            // Check if player has reached final dialogue (13) - triggers boss activation
+            if (player && player->tieneComponente<IQuest>())
+            {
+                auto quest = player->getComponente<IQuest>();
+                if (dialogo->indice_actual >= 13 && !quest->all_dialogues_complete)
+                {
+                    quest->all_dialogues_complete = true;
+                    CE::printDebug("[QUEST] All dialogues complete! Boss activation triggered.");
+                }
+            }
         }
     }
 
@@ -418,7 +448,7 @@ namespace IVJ
         }
     }
 
-    void SysUpdateQuestState(std::shared_ptr<Entidad>& player)
+    void SysUpdateQuestState(std::shared_ptr<Entidad>& player, int currentRound)
     {
         if (!player || !player->tieneComponente<IQuest>())
             return;
@@ -427,7 +457,8 @@ namespace IVJ
         QUEST_PHASE new_phase = quest->current_phase;
 
         // Determine new phase based on completed phases AND activation flags
-        if (!quest->phase1_complete && quest->current_phase == QUEST_PHASE::NOT_STARTED)
+        // Quest can only start after currentRound >= 3
+        if (!quest->phase1_complete && quest->current_phase == QUEST_PHASE::NOT_STARTED && currentRound >= 3)
         {
             new_phase = QUEST_PHASE::PHASE_1_TRAP_LESSON;
         }
@@ -456,7 +487,7 @@ namespace IVJ
             switch (new_phase)
             {
                 case QUEST_PHASE::PHASE_1_TRAP_LESSON:
-                    CE::printDebug("[QUEST] Starting Phase 1: Trap Lesson");
+                    CE::printDebug("[QUEST] Starting Phase 1: Trap Lesson (Round " + std::to_string(currentRound) + ")");
                     break;
                 case QUEST_PHASE::PHASE_2_RANGED_LESSON:
                     CE::printDebug("[QUEST] Starting Phase 2: Ranged Attack Lesson");
@@ -1028,6 +1059,25 @@ namespace IVJ
             }
         }
 
+        // Case 5: Phase 3 complete - point to NPC for final dialogues (11-13)
+        else if (quest->phase3_complete)
+        {
+            // Check if player hasn't reached the final dialogue yet
+            for (auto& npc : npcs)
+            {
+                if (npc->tieneComponente<IDialogo>())
+                {
+                    auto dialogo = npc->getComponente<IDialogo>();
+                    // If player hasn't reached dialogue 13 yet, point to NPC
+                    if (dialogo->indice_actual < 13)
+                    {
+                        quest->navigation_target = npc;
+                        return;
+                    }
+                }
+            }
+        }
+
         // If no valid target found, clear navigation target
         quest->navigation_target = nullptr;
     }
@@ -1043,7 +1093,8 @@ namespace IVJ
         if (!quest->navigation_arrow)
         {
             auto arrow = std::make_shared<Entidad>();
-            arrow->setPosicion(0.f, 0.f); // Will be updated in SysUpdateNavigationArrow
+            // Position arrow far away until round 3 (will be updated in SysUpdateNavigationArrow)
+            arrow->setPosicion(-10000.f, -10000.f);
             arrow->addComponente(std::make_shared<CE::ISprite>(
                 CE::GestorAssets::Get().getTextura("navigation_e"),
                 32, 32, 0.3f));
@@ -1055,7 +1106,7 @@ namespace IVJ
             // Add to pool
             pool.agregarPool(arrow);
 
-            CE::printDebug("[QUEST] Navigation arrow entity created");
+            CE::printDebug("[QUEST] Navigation arrow entity created (hidden until round 3)");
         }
     }
 
@@ -1067,14 +1118,33 @@ namespace IVJ
 
         auto quest = player->getComponente<IQuest>();
 
-        // Don't update if arrow doesn't exist or quest is complete
-        if (!quest->navigation_arrow || quest->phase3_complete)
+        // Don't update if arrow doesn't exist
+        if (!quest->navigation_arrow)
+            return;
+
+        // Check if quest is completely done (phase 3 complete AND all dialogues read)
+        bool allDialoguesRead = false;
+        if (quest->phase3_complete)
         {
-            // Hide arrow if quest is complete
-            if (quest->navigation_arrow)
+            for (auto& npc : npcs)
             {
-                quest->navigation_arrow->getStats()->hp = 0;
+                if (npc->tieneComponente<IDialogo>())
+                {
+                    auto dialogo = npc->getComponente<IDialogo>();
+                    // If player has reached dialogue 13 or beyond, all dialogues are read
+                    if (dialogo->indice_actual >= 13)
+                    {
+                        allDialoguesRead = true;
+                        break;
+                    }
+                }
             }
+        }
+
+        // Hide arrow if quest hasn't started yet (before round 3) OR if all dialogues are read
+        if (quest->current_phase == QUEST_PHASE::NOT_STARTED || allDialoguesRead)
+        {
+            quest->navigation_arrow->setPosicion(-10000.f, -10000.f);
             return;
         }
 

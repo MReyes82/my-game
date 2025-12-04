@@ -254,6 +254,12 @@ namespace IVJ
 
         for (auto& chaser : chasers)
         {
+            // Skip boss entities - they have their own movement system
+            if (chaser->tieneComponente<IBossBhvrMirage>())
+            {
+                continue;
+            }
+
             auto& chaserTransform = *chaser->getTransformada();
 
             CE::Vector2D directionToPlayer = playerPos - chaserTransform.posicion;
@@ -408,7 +414,7 @@ namespace IVJ
     // system to adjust entity stats based on enemy type
     void SystemAdjustEntityStats(std::shared_ptr<CE::Objeto> entity, const int type)
     {
-        float baseSpeed = 100.f;
+        float baseSpeed = 75.f;
         const auto stats = entity->getStats();
         switch (type)
         {
@@ -423,7 +429,7 @@ namespace IVJ
             stats->hp = 20;
             stats->hp_max = 20;
             stats->damage = 3;
-            stats->maxSpeed = baseSpeed * 2.f;
+            stats->maxSpeed = baseSpeed * 1.5f;
             break;
 
         case 2: // chongus

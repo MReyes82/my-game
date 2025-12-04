@@ -32,6 +32,7 @@ namespace IVJ
         void movePlayerPointer();
         static void loadUIAssets();
         void updatePlayerUI();
+        void stopEnemyMovement(std::vector<std::shared_ptr<Entidad>>& enemies);
 
         void initPlayerPointer();
         void registerButtons();

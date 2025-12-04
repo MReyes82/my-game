@@ -86,6 +86,9 @@ namespace IVJ
         registrarBotones(sf::Keyboard::Scancode::Escape, "pausa");
         registrarBotones(sf::Keyboard::Scancode::P, "pauseboss");
         registrarBotones(sf::Keyboard::Scancode::F, "npcinteract"); // For NPC interaction
+#if DEBUG
+        registrarBotones(sf::Keyboard::Scancode::R, "debuground"); // Debug: increment round
+#endif
     }
 
     void EscenaMain::summonEnemies(const int maxEnemies)
@@ -252,7 +255,8 @@ namespace IVJ
                                          CE::Vector2D{0, 0}, CE::Vector2D{256, 512});
         auto npc = std::make_shared<Entidad>();
         npc->getStats()->hp = 100;
-        npc->setPosicion(1920.f, 1920.f); // Position at center of map - player spawns at (540, 360)
+        // Position NPC far away from playable area until round 3
+        npc->setPosicion(10000.f, 10000.f);
         npc->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("hoja_yellow"),
             68, 85, 0.5f)); // Scale 0.5f for proper size with 0.3f zoom camera
@@ -268,9 +272,9 @@ namespace IVJ
         // Using weapon loot box sprite as placeholder for jammers
         // Spread them across different areas of the map to make navigation arrow useful
 
-        // Phase 1 Jammer: Trap Lesson - Northeast area
+        // Phase 1 Jammer: Trap Lesson - Northeast area (positioned far away until round 3)
         auto jammer1 = std::make_shared<Entidad>();
-        jammer1->setPosicion(3200.f, 800.f); // Northeast area
+        jammer1->setPosicion(10000.f, 10000.f); // Far away until round 3
         jammer1->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
             16, 16, 2.0f)); // Larger scale to make it visible
@@ -284,9 +288,9 @@ namespace IVJ
         jammer1->getStats()->hp = 100; // Keep alive
         objetos.agregarPool(jammer1);
 
-        // Phase 2 Jammer: Ranged Attack Lesson - Southwest area
+        // Phase 2 Jammer: Ranged Attack Lesson - Southwest area (positioned far away until round 3)
         auto jammer2 = std::make_shared<Entidad>();
-        jammer2->setPosicion(800.f, 3000.f); // Southwest area
+        jammer2->setPosicion(10000.f, 10000.f); // Far away until round 3
         jammer2->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
             16, 16, 2.0f));
@@ -302,9 +306,9 @@ namespace IVJ
         jammer2->getStats()->hp = 100;
         objetos.agregarPool(jammer2);
 
-        // Phase 3 Jammer: Teleport Lesson - Southeast corner
+        // Phase 3 Jammer: Teleport Lesson - Southeast corner (positioned far away until round 3)
         auto jammer3 = std::make_shared<Entidad>();
-        jammer3->setPosicion(3000.f, 3200.f); // Southeast corner
+        jammer3->setPosicion(10000.f, 10000.f); // Far away until round 3
         jammer3->addComponente(std::make_shared<CE::ISprite>(
             CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
             16, 16, 2.0f));
@@ -335,6 +339,9 @@ namespace IVJ
 
         boss = std::make_shared<Entidad>();
         MirageInit(boss, spawnPositions);
+        // Position boss far away from playable area until quest is complete
+        boss->setPosicion(10000.f, 10000.f);
+        boss->getComponente<IBossBhvrMirage>()->hpText->setPosicion(10000.f, 10000.f - 50.f);
         objetos.agregarPool(boss);
         objetos.agregarPool(boss->getComponente<IBossBhvrMirage>()->hpText);
 
@@ -399,6 +406,19 @@ namespace IVJ
         }
     }
 
+    void EscenaMain::stopEnemyMovement(std::vector<std::shared_ptr<Entidad>>& enemies)
+    {
+        // Set all enemy velocities to 0 when dialogue is active
+        for (auto& enemy : enemies)
+        {
+            if (enemy && enemy->getTransformada())
+            {
+                enemy->getTransformada()->velocidad.x = 0.f;
+                enemy->getTransformada()->velocidad.y = 0.f;
+            }
+        }
+    }
+
     void EscenaMain::onUpdate(float dt)
     {
         // First check if the player is alive
@@ -420,7 +440,34 @@ namespace IVJ
         SistemaControl(*player, dt);
         SistemaMover(objetos.getPool(), dt);
         auto enemies = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::ENEMY);
-        //SystemFollowPlayer(enemies, player, dt);
+
+        // Check if any dialogue is active before allowing enemies to follow player
+        bool isDialogueActive = false;
+        auto npcs = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::NPC);
+        for (auto& npc : npcs)
+        {
+            if (npc->tieneComponente<IVJ::IDialogo>())
+            {
+                auto dialogo = npc->getComponente<IVJ::IDialogo>();
+                if (dialogo->activo)
+                {
+                    isDialogueActive = true;
+                    break;
+                }
+            }
+        }
+
+        // Only allow enemies to follow player if no dialogue is active
+        if (!isDialogueActive && boss->estaVivo())
+        {
+            SystemFollowPlayer(enemies, player, dt);
+        }
+        else
+        {
+            // Stop enemy movement by setting velocities to 0
+            stopEnemyMovement(enemies);
+        }
+
         SystemUpdateBulletsState(bulletsShot, enemies, player, objetos, currentEnemiesInScene, dt);
         SystemCheckLimits(objetos.getPool(), 3840.f, 3840.f);
         checkRoundEnd();
@@ -445,13 +492,64 @@ namespace IVJ
         // Handle enemy attacks on the player via system
         SystemHandleEnemyAttacks(player, enemies);
 
-        // Update quest NPCs
-        auto npcs = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::NPC);
+        // NPCs were already retrieved earlier for dialogue check, use them here
+        auto jammers = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::SIGNAL_JAMMER);
+
+        // Move NPC and jammers to playable area when round 3 is reached
+        if (currentRound >= 3)
+        {
+            // Move NPC to center of map
+            if (!npcs.empty())
+            {
+                for (auto& npc : npcs)
+                {
+                    // Check if NPC is still at distant position
+                    if (npc->getTransformada()->posicion.x > 9000.f)
+                    {
+                        npc->setPosicion(1920.f, 1920.f);
+                        CE::printDebug("[QUEST] Round 3 reached! NPC moved to playable area at (1920, 1920)");
+                    }
+                }
+            }
+
+            // Move jammers to their proper positions
+            if (!jammers.empty())
+            {
+                for (auto& jammer : jammers)
+                {
+                    if (!jammer->tieneComponente<IVJ::ISignalJammer>())
+                        continue;
+
+                    // Check if jammer is still at distant position
+                    if (jammer->getTransformada()->posicion.x > 9000.f)
+                    {
+                        auto jammerComp = jammer->getComponente<IVJ::ISignalJammer>();
+
+                        // Position each jammer based on its phase number
+                        if (jammerComp->phase_number == 1)
+                        {
+                            jammer->setPosicion(3200.f, 800.f); // Northeast area
+                            CE::printDebug("[QUEST] Jammer 1 (Phase 1) moved to (3200, 800)");
+                        }
+                        else if (jammerComp->phase_number == 2)
+                        {
+                            jammer->setPosicion(800.f, 3000.f); // Southwest area
+                            CE::printDebug("[QUEST] Jammer 2 (Phase 2) moved to (800, 3000)");
+                        }
+                        else if (jammerComp->phase_number == 3)
+                        {
+                            jammer->setPosicion(3000.f, 3200.f); // Southeast corner
+                            CE::printDebug("[QUEST] Jammer 3 (Phase 3) moved to (3000, 3200)");
+                        }
+                    }
+                }
+            }
+        }
+
         SysUpdateQuestNPCs(npcs, player, dt);
 
-        // Update quest state and signal jammers
-        SysUpdateQuestState(player);
-        auto jammers = SystemGetEntityTypeVector(objetos.getPool(), CE::ENTITY_TYPE::SIGNAL_JAMMER);
+        // Update quest state and signal jammers (pass currentRound for quest availability check)
+        SysUpdateQuestState(player, currentRound);
         SysUpdateSignalJammers(jammers, player, objetos, dt);
 
         // Update navigation arrow target based on quest progress
@@ -484,6 +582,29 @@ namespace IVJ
             SysResetJammerStabilization(jammers);
         }
         // Update systems related to bosses (boss uses direct velocity control like enemies)
+        // Check if quest is complete and boss needs to be activated
+        // IMPORTANT: Boss activates when player finishes all dialogues (dialogue 13), not just phase 3
+        auto quest = player->getComponente<IQuest>();
+        if (quest && quest->all_dialogues_complete)
+        {
+            // Check if boss is still at distant position (one-time activation)
+            if (boss->getTransformada()->posicion.x > 9000.f)
+            {
+                // All dialogues complete, move boss to playable area
+                // Use one of the spawn positions for the boss
+                std::set<int> usedIndices;
+                int bossSpawnIndex = SystemGetRandomPosition(spawnPositions, usedIndices);
+                CE::Vector2D bossSpawnPos = spawnPositions[bossSpawnIndex];
+
+                boss->setPosicion(bossSpawnPos.x, bossSpawnPos.y);
+                boss->getComponente<IBossBhvrMirage>()->hpText->setPosicion(bossSpawnPos.x, bossSpawnPos.y - 50.f);
+                isBossPaused = false; // Activate boss
+
+                CE::printDebug("[QUEST] All dialogues complete! Boss activated at position (" +
+                              std::to_string(bossSpawnPos.x) + ", " + std::to_string(bossSpawnPos.y) + ")");
+            }
+        }
+
         if (boss->estaVivo() && !isBossPaused)
         {
             boss->inputFSM();
@@ -546,6 +667,14 @@ namespace IVJ
             {
                 playerControl->NPCinteract = true;
             }
+#if DEBUG
+            else if (accion.getNombre() == "debuground")
+            {
+                // Debug: Manually increment round
+                currentRound++;
+                CE::printDebug("[DEBUG] Round manually incremented to: " + std::to_string(currentRound));
+            }
+#endif
         }
 
         else if (accion.getTipo() == CE::Botones::TipoAccion::OnRelease)

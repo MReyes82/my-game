@@ -25,7 +25,7 @@ namespace IVJ
     [[maybe_unused]] void SysOnInteractuarSignalJammer(ISignalJammer* jammer, CE::Objeto& jammerEntity);
     [[maybe_unused]] void SysResetJammerStabilization(std::vector<std::shared_ptr<Entidad>>& jammers);
     [[maybe_unused]] void SysRenderStabilizationText(std::vector<std::shared_ptr<Entidad>>& jammers);
-    [[maybe_unused]] void SysUpdateQuestState(std::shared_ptr<Entidad>& player);
+    [[maybe_unused]] void SysUpdateQuestState(std::shared_ptr<Entidad>& player, int currentRound);
     [[maybe_unused]] void SysUpdateSignalJammers(std::vector<std::shared_ptr<Entidad>>& jammers,
                                                   std::shared_ptr<Entidad>& player,
                                                   CE::Pool& pool,

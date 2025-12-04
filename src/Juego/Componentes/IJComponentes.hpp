@@ -81,6 +81,7 @@ namespace IVJ
                    phase2_activated(false), phase3_activated(false),
                    has_talked_to_npc_initially(false), // Track if player has had first NPC interaction
                    max_dialogue_index(4), // Start with dialogues 1-4 accessible
+                   all_dialogues_complete(false), // Set to true when player reaches dialogue 13
                    navigation_target(nullptr), // Navigation arrow target
                    navigation_arrow(nullptr) {} // Navigation arrow entity
         ~IQuest() override {}
@@ -98,6 +99,7 @@ namespace IVJ
 
         // Dialogue progression control
         int max_dialogue_index; // Maximum dialogue index the player can currently access
+        bool all_dialogues_complete; // Set to true when player reaches final dialogue (13) - triggers boss activation
 
         // Navigation arrow - points to next quest objective
         std::shared_ptr<Entidad> navigation_target; // Current target entity (NPC or Signal Jammer)
