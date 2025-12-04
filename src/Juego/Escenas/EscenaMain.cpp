@@ -460,7 +460,7 @@ namespace IVJ
         }
 
         // Only allow enemies to follow player if no dialogue is active
-        if (!isDialogueActive && boss->estaVivo())
+        if (!isDialogueActive && boss->getTransformada()->posicion.x > 9000.f) // also disable during boss fight
         {
             SystemFollowPlayer(enemies, player, dt);
         }

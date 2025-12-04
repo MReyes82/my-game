@@ -319,7 +319,7 @@ namespace IVJ
 
         sf::Font font = CE::GestorAssets::Get().getFont("PressStart");
         // Reduce max line length for smaller box
-        std::wstring text_with_linebreaks = agregarSaltoLinea(dialogo->texto, 35);
+        std::wstring text_with_linebreaks = agregarSaltoLinea(dialogo->texto, 40);
         sf::Text renderedText {font, text_with_linebreaks, 8}; // Font size 8 for PressStart2P
 
         // Get text bounds to size background properly
