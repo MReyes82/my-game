@@ -196,6 +196,10 @@ namespace IVJ
                                                CE::Vector2D{0,0}, CE::Vector2D{16,16});
         CE::GestorAssets::Get().agregarTextura("navigation_e", ASSETS "/sprites/items/assets UI/Icons/navigation_e.png",
                                                CE::Vector2D{0,0}, CE::Vector2D{32,32});
+        CE::GestorAssets::Get().agregarTextura("jammer", ASSETS "/sprites/atlas/generator.png",
+                                                CE::Vector2D{0, 0}, CE::Vector2D{32.f, 32.f});
+        CE::GestorAssets::Get().agregarTextura("npc_quest", ASSETS "/sprites/player/npc.png",
+                                               CE::Vector2D{0, 0}, CE::Vector2D{32.f, 32.f});
 
         CE::GestorAssets::Get().agregarTextura("MirageSprite", ASSETS "/sprites/bosses/mirageSprite.png",
                                                       CE::Vector2D{0, 0}, CE::Vector2D{264.f, 192.f});
@@ -251,16 +255,14 @@ namespace IVJ
         initPlayerPointer();
 
         // Create quest NPC
-        CE::GestorAssets::Get().agregarTextura("hoja_yellow", ASSETS "/sprites/aliens/alienYellow.png",
-                                         CE::Vector2D{0, 0}, CE::Vector2D{256, 512});
         auto npc = std::make_shared<Entidad>();
         npc->getStats()->hp = 100;
         // Position NPC far away from playable area until round 3
         npc->setPosicion(10000.f, 10000.f);
         npc->addComponente(std::make_shared<CE::ISprite>(
-            CE::GestorAssets::Get().getTextura("hoja_yellow"),
-            68, 85, 0.5f)); // Scale 0.5f for proper size with 0.3f zoom camera
-        npc->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{68 * 0.5f, 85 * 0.5f})); // Match bounding box to scaled size
+            CE::GestorAssets::Get().getTextura("npc_quest"),
+            32, 32, 1.25f)); // Scale 0.5f for proper size with 0.3f zoom camera
+        npc->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32, 32})); // Match bounding box to scaled size
         npc->addComponente(std::make_shared<CE::IControl>());
         npc->addComponente(std::make_shared<IMaquinaEstado>());
         npc->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::NPC)); // Mark as NPC type
@@ -276,8 +278,8 @@ namespace IVJ
         auto jammer1 = std::make_shared<Entidad>();
         jammer1->setPosicion(10000.f, 10000.f); // Far away until round 3
         jammer1->addComponente(std::make_shared<CE::ISprite>(
-            CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
-            16, 16, 2.0f)); // Larger scale to make it visible
+            CE::GestorAssets::Get().getTextura("jammer"),
+            32, 32, 1.0f)); // Larger scale to make it visible
         jammer1->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f, 32.f}));
         jammer1->addComponente(std::make_shared<CE::IControl>());
         jammer1->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
@@ -292,8 +294,8 @@ namespace IVJ
         auto jammer2 = std::make_shared<Entidad>();
         jammer2->setPosicion(10000.f, 10000.f); // Far away until round 3
         jammer2->addComponente(std::make_shared<CE::ISprite>(
-            CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
-            16, 16, 2.0f));
+            CE::GestorAssets::Get().getTextura("jammer"),
+            32, 32, 1.0f));
         jammer2->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f, 32.f}));
         jammer2->addComponente(std::make_shared<CE::IControl>());
         jammer2->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
@@ -310,8 +312,8 @@ namespace IVJ
         auto jammer3 = std::make_shared<Entidad>();
         jammer3->setPosicion(10000.f, 10000.f); // Far away until round 3
         jammer3->addComponente(std::make_shared<CE::ISprite>(
-            CE::GestorAssets::Get().getTextura("weaponLootBoxSprite"),
-            16, 16, 2.0f));
+            CE::GestorAssets::Get().getTextura("jammer"),
+            32, 32, 1.0f));
         jammer3->addComponente(std::make_shared<CE::IBoundingBox>(CE::Vector2D{32.f, 32.f}));
         jammer3->addComponente(std::make_shared<CE::IControl>());
         jammer3->addComponente(std::make_shared<CE::IEntityType>(CE::ENTITY_TYPE::SIGNAL_JAMMER));
