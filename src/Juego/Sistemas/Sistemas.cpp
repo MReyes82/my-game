@@ -499,22 +499,21 @@ namespace IVJ
             break;
 
         case CE::WEAPON_TYPE::KNIFE:
-            stats->damage = 3;
+            stats->damage = 2;
             // -1 value for any of the ammo values since it does not have
             weapon->currentMagBullets = -1;
             weapon->magSize = -1;
             weapon->maxWeaponBullets = -1;
             weapon->reloadTime = -1;
-            weapon->fireRate = 0.1f;
-            break;
+            weapon->fireRate = 0.1f; // TODO: implement actual "fire rate" for the knife attacks
 
         case CE::WEAPON_TYPE::REVOLVER:
             stats->damage = 4;
             weapon->currentMagBullets = 6;
             weapon->magSize = 6;
             weapon->maxWeaponBullets = 36; // 6 mags
-            weapon->reloadTime = 3.f;
-            weapon->fireRate = 0.8f; // 0.8 seconds between shots
+            weapon->reloadTime = 2.5f;
+            weapon->fireRate = 0.6f; // 0.8 seconds between shots
             break;
 
         case CE::WEAPON_TYPE::SHOTGUN:
@@ -522,8 +521,8 @@ namespace IVJ
             weapon->currentMagBullets = 5;
             weapon->magSize = 5;
             weapon->maxWeaponBullets = 25; // 5 mags
-            weapon->reloadTime = 5.0f;
-            weapon->fireRate = 1.f; // 1 seconds between
+            weapon->reloadTime = 3.5f;
+            weapon->fireRate = 0.8f; // 1 seconds between
             break;
 
         case CE::WEAPON_TYPE::SMG:
@@ -531,7 +530,7 @@ namespace IVJ
             weapon->currentMagBullets = 25;
             weapon->magSize = 25;
             weapon->maxWeaponBullets = 100; // 4 mags
-            weapon->reloadTime = 2.f;
+            weapon->reloadTime = 1.5f;
             weapon->fireRate = 0.0833f ; // 12 bullets per second
             break;
 
@@ -540,7 +539,7 @@ namespace IVJ
             weapon->currentMagBullets = 30;
             weapon->magSize = 30;
             weapon->maxWeaponBullets = 90; // 3 mags
-            weapon->reloadTime = 2.5f;
+            weapon->reloadTime = 2.f;
             weapon->fireRate = 0.1f; // 10 bullets per second
             break;
 
